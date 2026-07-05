@@ -9925,6 +9925,12 @@ async function renderVisitantes() {
 
 document.addEventListener('kv-login',  function() { renderVisitantes(); });
 document.addEventListener('kv-logout', function() { renderVisitantes(); });
+// Recarrega visitantes quando Firebase Auth restaura a sessão após reload
+firebase.auth().onAuthStateChanged(function(user) {
+  if (user && window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) {
+    renderVisitantes();
+  }
+});
 
 // ── Painel de login / primeiro acesso do morador ──
 let _modoMoradorPanel = 'login';
