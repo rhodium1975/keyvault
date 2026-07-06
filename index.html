@@ -10585,6 +10585,21 @@ firebase.auth().onAuthStateChanged(function(user) {
   }
 });
 
+// ── Re-agrupa Agendados/Hoje/Histórico automaticamente quando o dia vira ──
+// Sem isso, uma aba deixada aberta durante a virada da meia-noite continuava
+// mostrando uma visita já vencida como "hoje"/"agendado" até alguém recarregar
+// a página ou disparar alguma outra ação que re-renderizasse a lista.
+window._visitUltimoDiaChecado = new Date().toDateString();
+setInterval(function() {
+  const diaAtual = new Date().toDateString();
+  if (diaAtual !== window._visitUltimoDiaChecado) {
+    window._visitUltimoDiaChecado = diaAtual;
+    if (window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) {
+      renderVisitantesHTML(window._visitCache || []);
+    }
+  }
+}, 60 * 1000);
+
 // ── Painel de login / primeiro acesso do morador ──
 let _modoMoradorPanel = 'login';
 
