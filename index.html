@@ -5595,17 +5595,29 @@
 
   let customCats = {};
   try {
-    const emb = _readEmbedded();
-    if (emb && emb.customCats) customCats = emb.customCats;
-    else customCats = JSON.parse(localStorage.getItem('kv_custom_cats') || '{}');
+    // localStorage é a fonte mais confiável: é atualizado na hora a cada alteração.
+    // O bloco embutido no arquivo (kv-appdata) só é regravado no disco quando existe
+    // um _fileHandle ativo (arquivo aberto via "Abrir arquivo"); sem isso, ele fica
+    // desatualizado e não deve sobrescrever o que já foi salvo localmente.
+    const lsRaw = localStorage.getItem('kv_custom_cats');
+    if (lsRaw !== null) {
+      customCats = JSON.parse(lsRaw);
+    } else {
+      const emb = _readEmbedded();
+      customCats = (emb && emb.customCats) ? emb.customCats : {};
+    }
   } catch(e) {}
 
   // Categorias fixas que o usuário deletou (persiste entre sessões)
   let deletedFixedCats = new Set();
   try {
-    const emb = _readEmbedded();
-    if (emb && emb.deletedFixedCats) deletedFixedCats = new Set(emb.deletedFixedCats);
-    else deletedFixedCats = new Set(JSON.parse(localStorage.getItem('kv_deleted_fixed_cats') || '[]'));
+    const lsRaw = localStorage.getItem('kv_deleted_fixed_cats');
+    if (lsRaw !== null) {
+      deletedFixedCats = new Set(JSON.parse(lsRaw));
+    } else {
+      const emb = _readEmbedded();
+      deletedFixedCats = new Set((emb && emb.deletedFixedCats) ? emb.deletedFixedCats : []);
+    }
   } catch(e) {}
 
   function salvarCustomCats() { try { localStorage.setItem('kv_custom_cats', JSON.stringify(customCats)); } catch(e) {} _agendarSalvarArquivo(); }
