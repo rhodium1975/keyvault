@@ -10238,7 +10238,12 @@ function _tentarReservarAreaParaVisita(chaveId, dataAgendadaDate, moradorNome, a
 // criados antes deste campo existir, caem no fallback de criadoEm.
 function _visitDataAgendada(v) {
   const ts = v.dataAgendada || v.criadoEm;
-  return (ts && ts.toDate) ? ts.toDate() : new Date();
+  if (ts && ts.toDate) return ts.toDate();
+  if (ts instanceof Date) return ts;
+  // Sem NENHUMA data gravada (registro bem antigo, de antes deste recurso
+  // existir) — trata como histórico antigo em vez de "agora", senão o
+  // registro fica preso em "hoje" para sempre a cada nova renderização.
+  return new Date(0);
 }
 
 // Agrupa os visitantes pelo listaId (uma lista = um cadastro/confirmação),
@@ -10376,14 +10381,14 @@ function renderVisitantesHTML(lista) {
   html += gruposDoDia.length
     ? gruposDoDia.map(g => _visitCardLista(g.listaId, g.itens, {
         mostrarMorador, podeAdicionar, podeEditar,
-        rotulo: g.dataRef.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        rotulo: g.dataRef.toLocaleDateString('pt-BR')
       })).join('')
     : '<div style="text-align:center;color:var(--text-dim);font-size:12px;padding:10px 0;">Nenhum visitante hoje.</div>';
 
   if (gruposHistorico.length) {
     const porData = {};
     gruposHistorico.forEach(g => {
-      const dataStr = g.dataRef.toLocaleDateString('pt-BR');
+      const dataStr = g.dataRef.getTime() === 0 ? 'Sem data registrada' : g.dataRef.toLocaleDateString('pt-BR');
       (porData[dataStr] = porData[dataStr] || []).push(g);
     });
 
@@ -10403,7 +10408,7 @@ function renderVisitantesHTML(lista) {
               <div style="font-size:10px;color:var(--text-dim);margin:6px 0 2px;">${dataStr}</div>
               ${porData[dataStr].map(g => _visitCardLista(g.listaId, g.itens, {
                 mostrarMorador, podeAdicionar, podeEditar, dim: true,
-                rotulo: g.dataRef.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                rotulo: g.dataRef.getTime() === 0 ? '' : g.dataRef.toLocaleDateString('pt-BR')
               })).join('')}
             </div>
           `).join('')}
