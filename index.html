@@ -7033,10 +7033,16 @@
     delChaveId = null;
   }
 
-  function confirmarDel() {
+  async function confirmarDel() {
     if (!delChaveId) return;
     const ch = chaves.find(c => c.id === delChaveId);
     if (!ch) return;
+    try {
+      await excluirChaveFirestore(ch.id);
+    } catch(e) {
+      alert('Erro ao excluir chave: ' + (e.message || e));
+      return;
+    }
     chaves = chaves.filter(c => c.id !== delChaveId);
     log.push({ tipo:'del', txt:`Chave ${ch.id} (${ch.nome}) excluída do claviculário`, hora: dataHoraAtual() });
     salvarEstado();
