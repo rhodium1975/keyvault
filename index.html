@@ -3288,10 +3288,13 @@
     </div>
 
     <div id="visitFormMorador" style="display:none;padding:0 12px 10px;">
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="visitNomeInput" placeholder="Nome do visitante" class="login-input" style="flex:1;margin-bottom:0;">
-        <button type="button" onclick="kvVisitantes.adicionar()" class="login-btn" style="width:auto;padding:0 16px;white-space:nowrap;">+ Adicionar</button>
+      <div id="visitNomesContainer">
+        <div class="visit-nome-row" style="display:flex;gap:8px;margin-bottom:6px;">
+          <input type="text" class="login-input visit-nome-input" placeholder="Nome do visitante" style="flex:1;margin-bottom:0;">
+        </div>
       </div>
+      <button type="button" onclick="kvVisitantes.adicionarLinhaNome()" class="login-btn" style="width:100%;background:transparent;border:1px dashed var(--border);margin-bottom:8px;">+ Mais 1 pessoa</button>
+      <button type="button" onclick="kvVisitantes.criarLista()" class="login-btn" style="width:100%;">+ Adicionar Lista</button>
       <div id="visitErroMorador" style="display:none;color:#ff5577;font-size:12px;margin-top:6px;"></div>
     </div>
 
@@ -3300,6 +3303,10 @@
     </div>
   </div>
   </div>
+
+  <!-- BANNER NOTIFICAÇÃO PORTEIRO — NOVA LISTA DE VISITANTES -->
+  <div class="enc-notif-banner" id="visitNotifBanner"><div class="enc-notif-banner-title"><div class="enc-notif-banner-pulse"></div><span id="visitNotifBannerTitle">👥 Novas listas de visitantes</span></div><div class="enc-notif-banner-list" id="visitNotifBannerList"></div><button class="enc-notif-banner-close" onclick="fecharVisitNotifBanner()">✓ Entendi</button></div>
+
 
   <!-- SETOR DE CHAVES -->
   <div class="chaves-sector" id="chavesSector">
@@ -9855,34 +9862,88 @@ const kvVisitantes = (() => {
       .collection('visitantes');
   }
 
+  function colNotificacoesPorteiro() {
+    return firebase.firestore()
+      .collection('condominios').doc(condominioIdAtivo())
+      .collection('notificacoesPorteiro');
+  }
+
   function ehEquipe() {
     const role = KV_AUTH.getRole();
     return role === 'admin' || role === 'sindico' || role === 'user';
   }
 
-  async function adicionar() {
+  // ── Linhas dinâmicas de nomes (várias pessoas na mesma lista) ──
+  function adicionarLinhaNome() {
+    const container = document.getElementById('visitNomesContainer');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'visit-nome-row';
+    row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;';
+    row.innerHTML = `
+      <input type="text" class="login-input visit-nome-input" placeholder="Nome do visitante" style="flex:1;margin-bottom:0;">
+      <button type="button" onclick="kvVisitantes.removerLinhaNome(this)" class="login-btn" style="width:auto;padding:0 12px;background:transparent;color:var(--text-dim);">✕</button>
+    `;
+    container.appendChild(row);
+    const input = row.querySelector('input');
+    if (input) input.focus();
+  }
+
+  function removerLinhaNome(btn) {
+    const row = btn.closest('.visit-nome-row');
+    if (row) row.remove();
+  }
+
+  function resetarFormularioLista() {
+    const container = document.getElementById('visitNomesContainer');
+    if (!container) return;
+    container.innerHTML = `
+      <div class="visit-nome-row" style="display:flex;gap:8px;margin-bottom:6px;">
+        <input type="text" class="login-input visit-nome-input" placeholder="Nome do visitante" style="flex:1;margin-bottom:0;">
+      </div>`;
+  }
+
+  // ── Cria a lista inteira de uma vez (1 ou mais visitantes) — só nome, sem RG/CPF ──
+  async function criarLista() {
     const erroEl = document.getElementById('visitErroMorador');
     erroEl.style.display = 'none';
     try {
-      const nomeInput = document.getElementById('visitNomeInput');
-      const nome = nomeInput.value.trim();
-      if (!nome) throw new Error('Digite o nome do visitante.');
+      const inputs = Array.from(document.querySelectorAll('#visitNomesContainer .visit-nome-input'));
+      const nomes = inputs.map(i => i.value.trim()).filter(Boolean);
+      if (!nomes.length) throw new Error('Digite o nome de ao menos um visitante.');
 
       const moradorId = KV_AUTH.getUsername();
       const moradorSnap = await firebase.firestore()
         .collection('condominios').doc(condominioIdAtivo())
         .collection('moradores').doc(moradorId).get();
       const moradorData = moradorSnap.data() || {};
+      const moradorNome = moradorData.nome || KV_AUTH.getDisplayName();
+      const apto = moradorData.apto || '';
+      const listaId = 'lst_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 
-      await colVisitantes().add({
-        nome,
-        moradorId,
-        moradorNome: moradorData.nome || KV_AUTH.getDisplayName(),
-        apto: moradorData.apto || '',
-        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      const batch = firebase.firestore().batch();
+      nomes.forEach(nome => {
+        const ref = colVisitantes().doc();
+        batch.set(ref, {
+          nome, moradorId, moradorNome, apto, listaId,
+          criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+        });
       });
+      await batch.commit();
 
-      nomeInput.value = '';
+      // Notifica o porteiro — não deve impedir a criação da lista se falhar
+      try {
+        await colNotificacoesPorteiro().add({
+          tipo: 'lista-visitantes',
+          moradorNome, apto, listaId,
+          qtd: nomes.length,
+          nomes,
+          lida: false,
+          criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (e) { /* notificação é best-effort */ }
+
+      resetarFormularioLista();
       await renderVisitantes();
     } catch (e) {
       erroEl.textContent = e.message;
@@ -9890,17 +9951,45 @@ const kvVisitantes = (() => {
     }
   }
 
+  const JANELA_HISTORICO_DIAS = 15;
+
+  function dataCorte() {
+    const d = new Date();
+    d.setDate(d.getDate() - JANELA_HISTORICO_DIAS);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
   async function listar() {
+    const corte = dataCorte();
     if (ehEquipe()) {
-      const snap = await colVisitantes().limit(100).get();
+      // Filtra e ordena no próprio Firestore por criadoEm (único filtro na consulta,
+      // não exige índice composto) — garante sempre os registros mais recentes dentro
+      // da janela de 15 dias, em vez de um recorte arbitrário de "limit(100)" sem ordenação.
+      const snap = await colVisitantes()
+        .where('criadoEm', '>=', corte)
+        .orderBy('criadoEm', 'desc')
+        .limit(500)
+        .get();
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
     const moradorId = KV_AUTH.getUsername();
     const snap = await colVisitantes().where('moradorId', '==', moradorId).get();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Filtro de 15 dias aplicado no cliente aqui (evita exigir índice composto
+    // moradorId + criadoEm no Firestore).
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(v => {
+        const ts = v.criadoEm;
+        const d2 = (ts && ts.toDate) ? ts.toDate() : new Date();
+        return d2 >= corte;
+      });
   }
 
-  return { adicionar, listar, ehEquipe };
+  return {
+    criarLista, adicionarLinhaNome, removerLinhaNome, listar, ehEquipe,
+    colNotificacoesPorteiro, condominioIdAtivo
+  };
 })();
 
 async function renderVisitantes() {
@@ -9967,15 +10056,23 @@ async function renderVisitantes() {
         (grupos[dataStr] = grupos[dataStr] || []).push(v);
       });
 
+      const expandido = window._visitHistoricoExpandido === true;
+
       html += `
         <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--border);">
-          <div style="font-size:11px;color:var(--text-dim);letter-spacing:1px;font-family:var(--font-display);text-transform:uppercase;margin-bottom:6px;">📜 Histórico</div>
-          ${Object.keys(grupos).map(dataStr => `
-            <div style="margin-bottom:8px;">
-              <div style="font-size:10px;color:var(--text-dim);margin:6px 0 2px;">${dataStr}</div>
-              ${grupos[dataStr].map(v => linhaVisitante(v, { dim: true })).join('')}
-            </div>
-          `).join('')}
+          <div onclick="toggleVisitHistorico()" style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-dim);letter-spacing:1px;font-family:var(--font-display);text-transform:uppercase;user-select:none;">
+            <span style="display:inline-block;transition:transform .2s;transform:rotate(${expandido ? '90deg' : '0deg'});">▶</span>
+            <span>📜 Histórico</span>
+            <span style="opacity:.7;">(${historico.length})</span>
+          </div>
+          <div id="visitHistoricoBody" style="display:${expandido ? 'block' : 'none'};margin-top:6px;">
+            ${Object.keys(grupos).map(dataStr => `
+              <div style="margin-bottom:8px;">
+                <div style="font-size:10px;color:var(--text-dim);margin:6px 0 2px;">${dataStr}</div>
+                ${grupos[dataStr].map(v => linhaVisitante(v, { dim: true })).join('')}
+              </div>
+            `).join('')}
+          </div>
         </div>`;
     }
 
@@ -9985,12 +10082,124 @@ async function renderVisitantes() {
   }
 }
 
+window._visitHistoricoExpandido = false;
+window.toggleVisitHistorico = function() {
+  window._visitHistoricoExpandido = !window._visitHistoricoExpandido;
+  const body = document.getElementById('visitHistoricoBody');
+  const seta = body && body.previousElementSibling && body.previousElementSibling.querySelector('span');
+  if (body) body.style.display = window._visitHistoricoExpandido ? 'block' : 'none';
+  if (seta) seta.style.transform = window._visitHistoricoExpandido ? 'rotate(90deg)' : 'rotate(0deg)';
+};
+
 document.addEventListener('kv-login',  function() { renderVisitantes(); });
 document.addEventListener('kv-logout', function() { renderVisitantes(); });
 // Recarrega visitantes quando Firebase Auth restaura a sessão após reload
 firebase.auth().onAuthStateChanged(function(user) {
   if (user && window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) {
     renderVisitantes();
+  }
+});
+
+// ── NOTIFICAÇÃO AO PORTEIRO — NOVA LISTA DE VISITANTES ──
+// Obs: usa a Notification API do navegador, então só chega de fato se o porteiro
+// estiver com essa aba aberta (e tiver concedido permissão) — não é um push que
+// acorda o app fechado; para isso seria necessário um serviço de push no servidor
+// (ex: Firebase Cloud Messaging), fora do escopo deste arquivo.
+window._unsubNotifVisitantes = null;
+window._visitNotifPendentesAtuais = [];
+window._visitNotifIdsJaAvisados = new Set();
+
+function _ehPorteiroOuEquipeAtivo() {
+  if (!window.KV_AUTH || !KV_AUTH.isLoggedIn()) return false;
+  const role = KV_AUTH.getRole();
+  return role === 'admin' || role === 'sindico' || role === 'user';
+}
+
+function _exibirBannerNotifVisitantes(pendentes) {
+  window._visitNotifPendentesAtuais = pendentes;
+  const banner = document.getElementById('visitNotifBanner');
+  const lista  = document.getElementById('visitNotifBannerList');
+  const titulo = document.getElementById('visitNotifBannerTitle');
+  if (!banner || !lista || !titulo) return;
+
+  if (!pendentes.length) { banner.classList.remove('open'); return; }
+
+  // Evita sobrepor visualmente se o banner de encomendas também estiver aberto
+  const encBanner = document.getElementById('encNotifBanner');
+  banner.style.top = (encBanner && encBanner.classList.contains('open'))
+    ? (encBanner.offsetHeight + 8) + 'px'
+    : '0';
+
+  titulo.textContent = pendentes.length === 1
+    ? '👥 1 nova lista de visitantes'
+    : `👥 ${pendentes.length} novas listas de visitantes`;
+
+  lista.innerHTML = pendentes.map(p => {
+    const nomes = (p.nomes || []).join(', ');
+    return `<div class="enc-notif-banner-item">
+      <div style="flex:1;min-width:0;">
+        <div class="enc-notif-banner-item-apto">${p.moradorNome || 'Morador'}${p.apto ? ' — Apto ' + p.apto : ''}</div>
+        <div class="enc-notif-banner-item-desc">${p.qtd || 1} pessoa(s): ${nomes}</div>
+      </div>
+    </div>`;
+  }).join('');
+  banner.classList.add('open');
+
+  // Push do navegador só para itens realmente novos desde a última exibição
+  const novos = pendentes.filter(p => !window._visitNotifIdsJaAvisados.has(p.id));
+  if (novos.length && 'Notification' in window) {
+    const disparar = () => {
+      if (Notification.permission !== 'granted') return;
+      novos.forEach(p => {
+        new Notification('👥 KeyVault — Nova Lista de Visitantes', {
+          body: `${p.moradorNome || 'Morador'}${p.apto ? ' (Apto ' + p.apto + ')' : ''}: ${(p.nomes || []).join(', ')}`,
+          tag: 'kv-visit-lista-' + p.id
+        });
+      });
+    };
+    if (Notification.permission === 'default') Notification.requestPermission().then(disparar);
+    else disparar();
+  }
+  pendentes.forEach(p => window._visitNotifIdsJaAvisados.add(p.id));
+}
+
+window.fecharVisitNotifBanner = async function() {
+  const banner = document.getElementById('visitNotifBanner');
+  if (banner) banner.classList.remove('open');
+  try {
+    const pendentes = window._visitNotifPendentesAtuais || [];
+    if (!pendentes.length) return;
+    const batch = firebase.firestore().batch();
+    pendentes.forEach(p => batch.update(kvVisitantes.colNotificacoesPorteiro().doc(p.id), { lida: true }));
+    await batch.commit();
+  } catch (e) {}
+};
+
+function _iniciarListenerNotifVisitantes() {
+  if (window._unsubNotifVisitantes) return;
+  if (!_ehPorteiroOuEquipeAtivo()) return;
+  try {
+    window._unsubNotifVisitantes = kvVisitantes.colNotificacoesPorteiro()
+      .where('lida', '==', false)
+      .onSnapshot(function(snap) {
+        const pendentes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        _exibirBannerNotifVisitantes(pendentes);
+      }, function() { /* erro de permissão/rede — ignora silenciosamente */ });
+  } catch (e) {}
+}
+
+function _pararListenerNotifVisitantes() {
+  if (window._unsubNotifVisitantes) { window._unsubNotifVisitantes(); window._unsubNotifVisitantes = null; }
+  window._visitNotifIdsJaAvisados = new Set();
+  const banner = document.getElementById('visitNotifBanner');
+  if (banner) banner.classList.remove('open');
+}
+
+document.addEventListener('kv-login',  _iniciarListenerNotifVisitantes);
+document.addEventListener('kv-logout', _pararListenerNotifVisitantes);
+firebase.auth().onAuthStateChanged(function(user) {
+  if (user && window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) {
+    _iniciarListenerNotifVisitantes();
   }
 });
 
