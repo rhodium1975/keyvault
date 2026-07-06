@@ -3288,15 +3288,17 @@
     </div>
 
     <div id="visitFormMorador" style="display:none;padding:0 12px 10px;">
-      <div style="margin-bottom:8px;">
-        <label for="visitDataAgendadaInput" style="display:block;font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">📅 Data da visita</label>
-        <input type="date" id="visitDataAgendadaInput" class="login-input" style="margin-bottom:0;">
-      </div>
-      <div style="margin-bottom:8px;">
-        <label for="visitAreaSelect" style="display:block;font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">🔑 Área que será utilizada (opcional)</label>
-        <select id="visitAreaSelect" class="login-input" style="margin-bottom:0;">
-          <option value="">— Nenhuma —</option>
-        </select>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <div style="flex:0 0 40%;">
+          <label for="visitDataAgendadaInput" style="display:block;font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📅 Data</label>
+          <input type="date" id="visitDataAgendadaInput" class="login-input" style="margin-bottom:0;padding:6px 8px;font-size:12px;">
+        </div>
+        <div style="flex:1;min-width:0;">
+          <label for="visitAreaSelect" style="display:block;font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔑 Área (opcional)</label>
+          <select id="visitAreaSelect" class="login-input" style="margin-bottom:0;padding:6px 8px;font-size:12px;">
+            <option value="">— Nenhuma —</option>
+          </select>
+        </div>
       </div>
       <div id="visitNomesContainer">
         <div class="visit-nome-row" style="display:flex;gap:8px;margin-bottom:6px;">
@@ -10161,12 +10163,23 @@ const kvVisitantes = (() => {
 // Preenche o <select> de áreas com as chaves cadastradas no claviculário.
 // Usa as variáveis globais do módulo de chaves (chaves, allCats) — ambas
 // vivem no mesmo escopo de topo dos <script> clássicos desta página.
+// Mostra só chaves de categoria "área comum" (fixa 'comum'/'areacomum' ou
+// qualquer categoria customizada cujo label contenha "comum") — não faz
+// sentido o morador agendar retirada da chave da administração/apartamento.
+function _visitEhAreaComum(chave, cats) {
+  if (!chave) return false;
+  if (chave.cat === 'comum' || chave.cat === 'areacomum') return true;
+  const info = cats[chave.cat];
+  return !!(info && info.label && info.label.toLowerCase().includes('comum'));
+}
+
 function _popularSelectArea() {
   const sel = document.getElementById('visitAreaSelect');
   if (!sel) return;
   const valorAtual = sel.value;
-  const listaChaves = (typeof chaves !== 'undefined' && Array.isArray(chaves)) ? chaves : [];
+  const todasChaves = (typeof chaves !== 'undefined' && Array.isArray(chaves)) ? chaves : [];
   const cats = (typeof allCats === 'function') ? allCats() : {};
+  const listaChaves = todasChaves.filter(c => _visitEhAreaComum(c, cats));
   sel.innerHTML = '<option value="">— Nenhuma —</option>' +
     listaChaves.map(c => {
       const catLabel = (cats[c.cat] || {}).label || c.cat;
