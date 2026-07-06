@@ -5193,6 +5193,7 @@
 
     // Gerenciar categorias — só admin
     document.querySelectorAll('.cat-manage-btn').forEach(b => b.style.display = isAdmin ? '' : 'none');
+    if (typeof renderCatRow === 'function') renderCatRow();
 
     // Limpar histórico — só admin
     const clearLogBtn = document.getElementById('btnLimparLog');
@@ -5656,11 +5657,12 @@
   function renderCatRow() {
     const row = document.getElementById('catRow');
     const cats = allCats();
+    const podeGerenciarCats = window.KV_AUTH ? KV_AUTH.isAdmin() : true;
     // Rebuild all chips (keep manage button at end)
     row.innerHTML = `<button class="cat-chip" onclick="setCat('todos',this,'sel-todos')">Todos tipos</button>` +
       Object.entries(cats).map(([key, c]) => {
         const colorStyle = c.color ? `style="--cat-chip-color:${c.color}"` : '';
-        const removeBtn = `<span class="cat-chip-del" onclick="removerCatInline(event,'${key}')" title="Remover categoria">✕</span>`;
+        const removeBtn = podeGerenciarCats ? `<span class="cat-chip-del" onclick="removerCatInline(event,'${key}')" title="Remover categoria">✕</span>` : '';
         return `<button class="cat-chip${c.color ? ' cat-chip-custom' : ''}" ${colorStyle} onclick="setCat('${key}',this,'${c.cls || 'sel-apt'}')">${c.icon} ${c.label}${removeBtn}</button>`;
       }).join('') +
       `<button class="cat-manage-btn" onclick="abrirGerenciarCats()" title="Nova categoria / Gerenciar"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>`;
@@ -5737,6 +5739,10 @@
   };
 
   window.abrirGerenciarCats = function() {
+    if (window.KV_AUTH && !KV_AUTH.isAdmin()) {
+      showToastSimples('⚠ Apenas o síndico/admin pode gerenciar categorias.');
+      return;
+    }
     selectedEmoji = '🔑';
     selectedCatKey = null;
     document.getElementById('newCatNome').value = '';
@@ -5830,6 +5836,10 @@
 
   window.removerCatInline = function(event, key) {
     event.stopPropagation();
+    if (window.KV_AUTH && !KV_AUTH.isAdmin()) {
+      showToastSimples('⚠ Apenas o síndico/admin pode remover categorias.');
+      return;
+    }
     const inUse = chaves.some(ch => ch.cat === key);
     const cat = allCats()[key];
     const nome = cat ? cat.label : key;
