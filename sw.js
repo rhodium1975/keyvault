@@ -4,9 +4,9 @@
 
 const CACHE_NAME = 'keyvault-v3';
 const CACHE_FILES = [
-  '/',
-  '/index.html',
-  '/manifest.json'
+  './',
+  './index.html',
+  './manifest.json'
 ];
 
 // Instalação: faz cache dos arquivos principais
@@ -49,7 +49,7 @@ self.addEventListener('fetch', event => {
       .catch(() => {
         // Offline: serve do cache
         return caches.match(event.request).then(cached => {
-          return cached || caches.match('/index.html');
+          return cached || caches.match('./index.html');
         });
       })
   );
