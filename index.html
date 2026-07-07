@@ -3285,6 +3285,12 @@
         <span class="enc-count-badge" id="visitCountBadge">0</span>
         <span class="enc-title">👥 Visitantes</span>
       </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button class="prest-add-btn" id="visitBtnAgendar" onclick="kvVisitantes.toggleForm()" style="display:none;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Agendar
+        </button>
+      </div>
     </div>
 
     <div id="visitFormMorador" style="display:none;padding:0 12px 10px;">
@@ -8273,6 +8279,10 @@
       // Reaplicar cor personalizada nos cards recém-renderizados
       if (window._encColorConfig) _aplicarCorEncTudo(window._encColorConfig);
     }
+    // Exposta globalmente: usada pelo oninput inline do campo de busca (fora
+    // desta IIFE) e pelas checagens `typeof window.renderEncomendas` em outros
+    // pontos do código, que antes ficavam silenciosamente sem efeito.
+    window.renderEncomendas = renderEncomendas;
 
     // ── ENTREGAR RÁPIDO ──
     window.abrirEntregarRapido = function(e) {
@@ -10006,6 +10016,7 @@ const kvVisitantes = (() => {
       }
 
       resetarFormularioLista();
+      window._visitFormExpandido = false;
       await renderVisitantes();
     } catch (e) {
       erroEl.textContent = e.message;
@@ -10013,6 +10024,23 @@ const kvVisitantes = (() => {
     }
   }
 
+  // ── Expandir/recolher o formulário de agendamento (minimizado por padrão) ──
+  function toggleForm() {
+    window._visitFormExpandido = !window._visitFormExpandido;
+    const formEl = document.getElementById('visitFormMorador');
+    const btnEl = document.getElementById('visitBtnAgendar');
+    if (formEl) formEl.style.display = window._visitFormExpandido ? 'block' : 'none';
+    if (btnEl) {
+      btnEl.innerHTML = window._visitFormExpandido
+        ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Fechar`
+        : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Agendar`;
+    }
+    if (window._visitFormExpandido) {
+      resetarFormularioLista();
+      const primeiroInput = document.querySelector('#visitNomesContainer .visit-nome-input');
+      if (primeiroInput) primeiroInput.focus();
+    }
+  }
 
   const JANELA_HISTORICO_DIAS = 15;
 
@@ -10153,7 +10181,7 @@ const kvVisitantes = (() => {
 
   return {
     criarLista, adicionarLinhaNome, removerLinhaNome, listar, ehEquipe,
-    colNotificacoesPorteiro, condominioIdAtivo,
+    colNotificacoesPorteiro, condominioIdAtivo, toggleForm,
     adicionarPessoaALista, abrirFormAdicionar, fecharFormAdicionar,
     iniciarEdicaoNome, cancelarEdicaoNome, salvarNomeVisitante,
     iniciarEdicaoData, cancelarEdicaoData, salvarDataLista
@@ -10434,7 +10462,14 @@ async function renderVisitantes() {
   }
 
   const role = KV_AUTH.getRole();
-  formEl.style.display = (role === 'morador') ? 'block' : 'none';
+  const btnAgendar = document.getElementById('visitBtnAgendar');
+  if (btnAgendar) {
+    btnAgendar.style.display = (role === 'morador') ? '' : 'none';
+    btnAgendar.innerHTML = window._visitFormExpandido
+      ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Fechar`
+      : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Agendar`;
+  }
+  formEl.style.display = (role === 'morador' && window._visitFormExpandido) ? 'block' : 'none';
   if (role === 'morador') {
     const dataInput = document.getElementById('visitDataAgendadaInput');
     if (dataInput && !dataInput.value) {
@@ -10459,6 +10494,7 @@ window._visitListasExpandidas = new Set();
 window._visitAddFormAberto = null;
 window._visitEditandoNome = null;
 window._visitEditandoData = null;
+window._visitFormExpandido = false;
 window._visitCache = [];
 
 // Toggles abaixo usam o cache local — não disparam nova leitura no Firestore.
