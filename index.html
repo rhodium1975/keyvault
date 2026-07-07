@@ -3021,7 +3021,7 @@
   <!-- SEARCH -->
   <div class="search-wrap">
     <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
-    <input class="search-input" type="text" id="busca" name="kv_busca_chave" placeholder="Buscar por chave, apto, responsável..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="render()">
+    <input class="search-input" type="text" id="busca" name="kv_busca_chave" placeholder="Buscar por chave, apto, responsável..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')" oninput="render()">
   </div>
 
   <!-- ENCOMENDAS -->
@@ -9646,6 +9646,12 @@ const kvPrest = (() => {
 // Executado depois que todos os scripts foram carregados e o DOM está pronto.
 // Se já há sessão salva, esconde a tela de login e aplica o estado da UI.
 document.addEventListener('DOMContentLoaded', function() {
+  // Rede de segurança extra contra autopreenchimento do navegador nesse campo
+  var _buscaSafe = document.getElementById('busca');
+  if (_buscaSafe) {
+    _buscaSafe.value = '';
+    setTimeout(function() { _buscaSafe.value = ''; }, 300);
+  }
   if (window.KV_AUTH && window.KV_AUTH.isLoggedIn()) {
     document.getElementById('loginScreen').classList.add('hidden');
     if (typeof atualizarSessionBadge === 'function') atualizarSessionBadge();
