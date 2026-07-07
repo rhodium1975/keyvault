@@ -2090,6 +2090,11 @@
     color: var(--cyan);
   }
   .session-badge:hover { opacity: 0.8; }
+  .session-role {
+    opacity: 0.65; font-size: 7px; letter-spacing: 1px;
+    padding-left: 5px; margin-left: 5px;
+    border-left: 1px solid currentColor;
+  }
 
   /* ── LOCKED OVERLAY ON CARD ── */
   .adm-lock-badge {
@@ -2997,6 +3002,7 @@
       <div class="session-badge admin" id="sessionBadge" onclick="abrirMenuSessao()" title="Sessão ativa — clique para opções" style="display: inline-flex;">
         <span id="sessionIcon">🔐</span>
         <span id="sessionName">Administrador</span>
+        <span id="sessionRole" class="session-role"></span>
       </div>
     </div>
   </div>
@@ -3015,7 +3021,7 @@
   <!-- SEARCH -->
   <div class="search-wrap">
     <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
-    <input class="search-input" type="text" id="busca" placeholder="Buscar por chave, apto, responsável..." oninput="render()">
+    <input class="search-input" type="text" id="busca" name="kv_busca_chave" placeholder="Buscar por chave, apto, responsável..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="render()">
   </div>
 
   <!-- ENCOMENDAS -->
@@ -3296,17 +3302,25 @@
 
     <div class="prest-list-wrap" id="visitListWrap" style="display:none;">
       <div id="visitFormMorador" style="display:none;padding:0 12px 10px;">
-        <div style="display:flex;gap:8px;margin-bottom:8px;">
-          <div style="flex:0 0 40%;">
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+          <div style="flex:0 0 27%;min-width:90px;">
             <label for="visitDataAgendadaInput" style="display:block;font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📅 Data</label>
-            <input type="date" id="visitDataAgendadaInput" class="login-input" style="margin-bottom:0;padding:6px 8px;font-size:12px;">
+            <input type="date" id="visitDataAgendadaInput" class="login-input" style="margin-bottom:0;padding:6px 4px;font-size:11px;">
           </div>
-          <div style="flex:1;min-width:0;">
-            <label for="visitAreaSelect" style="display:block;font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔑 Área (opcional)</label>
-            <select id="visitAreaSelect" class="login-input" style="margin-bottom:0;padding:6px 8px;font-size:12px;">
-              <option value="">— Nenhuma —</option>
-            </select>
+          <div style="flex:1;min-width:70px;">
+            <label for="visitHoraInicioInput" style="display:block;font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🕐 Início</label>
+            <input type="time" id="visitHoraInicioInput" class="login-input" style="margin-bottom:0;padding:6px 4px;font-size:11px;">
           </div>
+          <div style="flex:1;min-width:70px;">
+            <label for="visitHoraFimInput" style="display:block;font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🕐 Término</label>
+            <input type="time" id="visitHoraFimInput" class="login-input" style="margin-bottom:0;padding:6px 4px;font-size:11px;">
+          </div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <label for="visitAreaSelect" style="display:block;font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">🔑 Área (opcional)</label>
+          <select id="visitAreaSelect" class="login-input" style="margin-bottom:0;padding:6px 8px;font-size:12px;">
+            <option value="">— Nenhuma —</option>
+          </select>
         </div>
         <div id="visitNomesContainer">
           <div class="visit-nome-row" style="display:flex;gap:8px;margin-bottom:6px;">
@@ -4919,15 +4933,51 @@
     if (e.key === 'Enter') tentarLogin();
   });
 
+  // ── INFERÊNCIA DE GÊNERO PELO PRIMEIRO NOME (heurística, pt-BR) ──
+  // Usada apenas para exibir "Morador/Moradora" e "Administrador/Administradora"
+  // ao lado do nome — não afeta nenhuma regra de acesso do sistema.
+  const _NOMES_MASC_EXCECAO = new Set([
+    'joshua','nicolas','lucas','mathias','tobias','elias','matias','isaias',
+    'andre','luca','caua','joaquim','ismael','gabriel','rafael','daniel',
+    'samuel','miguel','davi','noah','henrique','felipe'
+  ]);
+  const _NOMES_FEM_EXCECAO = new Set([
+    'raquel','ines','isis','carmen','miriam','nair','marilyn','yasmin',
+    'jaqueline','elizabeth','ruth','judith','ester','allison'
+  ]);
+  function inferirGenero(nomeCompleto) {
+    if (!nomeCompleto) return 'M';
+    const primeiro = nomeCompleto
+      .trim().split(/\s+/)[0]
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    if (_NOMES_MASC_EXCECAO.has(primeiro)) return 'M';
+    if (_NOMES_FEM_EXCECAO.has(primeiro)) return 'F';
+    if (/(a|ah)$/.test(primeiro)) return 'F';
+    return 'M';
+  }
+  function rotuloPapel(role, nomeCompleto) {
+    const genero = inferirGenero(nomeCompleto);
+    if (role === 'admin' || role === 'sindico') {
+      return genero === 'F' ? 'Administradora' : 'Administrador';
+    }
+    if (role === 'porteiro') {
+      return genero === 'F' ? 'Porteira' : 'Porteiro';
+    }
+    return genero === 'F' ? 'Moradora' : 'Morador';
+  }
+
   // ── SESSION BADGE ──
   function atualizarSessionBadge() {
     if (!_session) return;
     const badge = document.getElementById('sessionBadge');
     const icon  = document.getElementById('sessionIcon');
     const name  = document.getElementById('sessionName');
+    const papel = document.getElementById('sessionRole');
     badge.style.display = 'inline-flex';
     icon.textContent    = _session.role === 'admin' ? '🔐' : '👤';
     name.textContent    = _session.displayName || _session.username;
+    if (papel) papel.textContent = rotuloPapel(_session.role, _session.displayName || _session.username);
     badge.className     = 'session-badge ' + (_session.role === 'admin' ? 'admin' : 'user');
   }
   window.atualizarSessionBadge = atualizarSessionBadge;
@@ -4981,6 +5031,8 @@
     // Reset
     document.getElementById('loginPassword').value = '';
     document.getElementById('loginEmail').value = '';
+    const _buscaEl = document.getElementById('busca');
+    if (_buscaEl) _buscaEl.value = '';
     // Notifica todas as seções para resetarem para o estado sem sessão
     document.dispatchEvent(new CustomEvent('kv-logout'));
   };
@@ -9941,16 +9993,27 @@ const kvVisitantes = (() => {
     }
     const dataInput = document.getElementById('visitDataAgendadaInput');
     if (dataInput) dataInput.value = _hojeISO();
+    const horaInicioInput = document.getElementById('visitHoraInicioInput');
+    if (horaInicioInput) horaInicioInput.value = '';
+    const horaFimInput = document.getElementById('visitHoraFimInput');
+    if (horaFimInput) horaFimInput.value = '';
     _popularSelectArea();
   }
 
-  // Converte uma string 'YYYY-MM-DD' (input type=date) em Date às 12:00 local,
+  // Converte uma string 'YYYY-MM-DD' (input type=date) em Date, na hora local
+  // informada (padrão 12:00 quando nenhum horário de início é definido),
   // evitando problemas de fuso horário que o construtor `new Date('YYYY-MM-DD')`
   // (que interpreta como UTC) poderia causar (virar o dia anterior/seguinte).
-  function _parseDataInput(str) {
+  function _parseDataInput(str, horaStr) {
     if (!str) return new Date();
     const [ano, mes, dia] = str.split('-').map(Number);
-    return new Date(ano, mes - 1, dia, 12, 0, 0);
+    let hora = 12, min = 0;
+    if (horaStr) {
+      const partes = horaStr.split(':').map(Number);
+      if (!isNaN(partes[0])) hora = partes[0];
+      if (!isNaN(partes[1])) min = partes[1];
+    }
+    return new Date(ano, mes - 1, dia, hora, min, 0);
   }
 
   function _hojeISO() {
@@ -9971,7 +10034,14 @@ const kvVisitantes = (() => {
       if (!nomes.length) throw new Error('Digite o nome de ao menos um visitante.');
 
       const dataInput = document.getElementById('visitDataAgendadaInput');
-      const dataAgendadaDate = _parseDataInput(dataInput ? dataInput.value : '');
+      const horaInicioInput = document.getElementById('visitHoraInicioInput');
+      const horaFimInput = document.getElementById('visitHoraFimInput');
+      const horaInicio = horaInicioInput ? horaInicioInput.value : '';
+      const horaFim = horaFimInput ? horaFimInput.value : '';
+      if (horaInicio && horaFim && horaFim <= horaInicio) {
+        throw new Error('O horário de término deve ser depois do horário de início.');
+      }
+      const dataAgendadaDate = _parseDataInput(dataInput ? dataInput.value : '', horaInicio);
 
       const areaSelect = document.getElementById('visitAreaSelect');
       const areaChaveId = areaSelect ? areaSelect.value : '';
@@ -9991,6 +10061,8 @@ const kvVisitantes = (() => {
         batch.set(ref, {
           nome, moradorId, moradorNome, apto, listaId, areaChaveId: areaChaveId || null,
           dataAgendada: firebase.firestore.Timestamp.fromDate(dataAgendadaDate),
+          horaInicio: horaInicio || null,
+          horaFim: horaFim || null,
           criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
         });
       });
@@ -10004,6 +10076,8 @@ const kvVisitantes = (() => {
           qtd: nomes.length,
           nomes,
           areaChaveId: areaChaveId || null,
+          horaInicio: horaInicio || null,
+          horaFim: horaFim || null,
           lida: false,
           criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
         });
@@ -10011,7 +10085,7 @@ const kvVisitantes = (() => {
 
       // Reserva automática da área/chave selecionada, se houver
       if (areaChaveId) {
-        const resultado = _tentarReservarAreaParaVisita(areaChaveId, dataAgendadaDate, moradorNome, apto, nomes.length);
+        const resultado = _tentarReservarAreaParaVisita(areaChaveId, dataAgendadaDate, moradorNome, apto, nomes.length, horaInicio, horaFim);
         if (!resultado.ok) {
           avisoEl.textContent = '⚠ ' + resultado.aviso;
           avisoEl.style.display = 'block';
@@ -10104,6 +10178,9 @@ const kvVisitantes = (() => {
         moradorNome: meta.moradorNome || '',
         apto: meta.apto || '',
         listaId,
+        areaChaveId: meta.areaChaveId || null,
+        horaInicio: meta.horaInicio || null,
+        horaFim: meta.horaFim || null,
         dataAgendada: meta.dataAgendada || firebase.firestore.FieldValue.serverTimestamp(),
         criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
       });
@@ -10167,13 +10244,25 @@ const kvVisitantes = (() => {
 
   async function salvarDataLista(listaId) {
     const input = document.getElementById('visitEditDataInput_' + listaId);
+    const horaInicioInput = document.getElementById('visitEditHoraInicioInput_' + listaId);
+    const horaFimInput = document.getElementById('visitEditHoraFimInput_' + listaId);
     if (!input || !input.value) return;
+    const horaInicio = horaInicioInput ? horaInicioInput.value : '';
+    const horaFim = horaFimInput ? horaFimInput.value : '';
+    if (horaInicio && horaFim && horaFim <= horaInicio) {
+      alert('O horário de término deve ser depois do horário de início.');
+      return;
+    }
     try {
-      const novaData = _parseDataInput(input.value);
+      const novaData = _parseDataInput(input.value, horaInicio);
       const novoTimestamp = firebase.firestore.Timestamp.fromDate(novaData);
       const snap = await colVisitantes().where('listaId', '==', listaId).get();
       const batch = firebase.firestore().batch();
-      snap.docs.forEach(doc => batch.update(doc.ref, { dataAgendada: novoTimestamp }));
+      snap.docs.forEach(doc => batch.update(doc.ref, {
+        dataAgendada: novoTimestamp,
+        horaInicio: horaInicio || null,
+        horaFim: horaFim || null,
+      }));
       await batch.commit();
       window._visitEditandoData = null;
       await renderVisitantes();
@@ -10239,7 +10328,7 @@ function _popularSelectArea() {
 // uma agenda com múltiplas datas futuras). Então isso funciona bem para a
 // próxima reserva daquela área, mas não permite reservar a mesma área para
 // duas visitas em datas diferentes ao mesmo tempo.
-function _tentarReservarAreaParaVisita(chaveId, dataAgendadaDate, moradorNome, apto, qtd) {
+function _tentarReservarAreaParaVisita(chaveId, dataAgendadaDate, moradorNome, apto, qtd, horaInicio, horaFim) {
   if (!chaveId) return { ok: true };
   if (typeof chaves === 'undefined' || !Array.isArray(chaves)) {
     return { ok: false, aviso: 'Não foi possível acessar o claviculário para reservar a área — reserve manualmente.' };
@@ -10255,14 +10344,15 @@ function _tentarReservarAreaParaVisita(chaveId, dataAgendadaDate, moradorNome, a
 
   const dataStr = dataAgendadaDate.toLocaleDateString('pt-BR');
   const hoje = new Date().toLocaleDateString('pt-BR');
+  const faixaHorario = horaInicio ? `${horaInicio}${horaFim ? ' às ' + horaFim : ''}` : '';
   chave.status      = 'reservada';
   chave.resp        = moradorNome;
   chave.tipo        = 'morador';
   chave.doc         = '';
   chave.unidade     = apto || '';
   chave.reservadoEm = hoje + ' ' + agoraSo();
-  chave.previsao    = dataStr + ' 00:00';
-  chave.obs         = `Reserva automática — visita agendada (${qtd} pessoa${qtd > 1 ? 's' : ''})`;
+  chave.previsao    = dataStr + ' ' + (horaInicio || '00:00');
+  chave.obs         = `Reserva automática — visita agendada (${qtd} pessoa${qtd > 1 ? 's' : ''})${faixaHorario ? ' — Horário: ' + faixaHorario : ''}`;
   chave.retirada    = null;
 
   try {
@@ -10344,12 +10434,14 @@ function _visitCardLista(listaId, itens, opts = {}) {
 
   const dataAtual = _visitDataAgendada(meta);
   const rotuloDataHtml = editandoData
-    ? `<div style="display:flex;gap:6px;align-items:center;" onclick="event.stopPropagation();">
-         <input type="date" id="visitEditDataInput_${listaId}" class="login-input" value="${_visitDataParaInput(dataAtual)}" style="margin-bottom:0;padding:4px 6px;font-size:11px;">
+    ? `<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;" onclick="event.stopPropagation();">
+         <input type="date" id="visitEditDataInput_${listaId}" class="login-input" value="${_visitDataParaInput(dataAtual)}" style="margin-bottom:0;padding:4px 6px;font-size:11px;width:118px;">
+         <input type="time" id="visitEditHoraInicioInput_${listaId}" class="login-input" value="${sanitizeInput(meta.horaInicio || '')}" style="margin-bottom:0;padding:4px 6px;font-size:11px;width:78px;" title="Horário de início">
+         <input type="time" id="visitEditHoraFimInput_${listaId}" class="login-input" value="${sanitizeInput(meta.horaFim || '')}" style="margin-bottom:0;padding:4px 6px;font-size:11px;width:78px;" title="Horário de término">
          <button type="button" onclick="kvVisitantes.salvarDataLista('${listaId}')" class="login-btn" style="width:auto;padding:0 8px;margin-bottom:0;">✓</button>
          <button type="button" onclick="kvVisitantes.cancelarEdicaoData()" class="login-btn" style="width:auto;padding:0 8px;margin-bottom:0;background:transparent;color:var(--text-dim);">✕</button>
        </div>`
-    : `<span style="display:flex;align-items:center;gap:4px;">${opts.rotulo || ''}${podeEditar ? `<span onclick="event.stopPropagation();kvVisitantes.iniciarEdicaoData('${listaId}')" style="cursor:pointer;padding:2px 4px;" title="Editar data">✎</span>` : ''}</span>`;
+    : `<span style="display:flex;align-items:center;gap:4px;">${opts.rotulo || ''}${podeEditar ? `<span onclick="event.stopPropagation();kvVisitantes.iniciarEdicaoData('${listaId}')" style="cursor:pointer;padding:2px 4px;" title="Editar data e horário">✎</span>` : ''}</span>`;
 
   return `
     <div style="margin-bottom:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden;${opts.dim ? 'opacity:.6;' : ''}">
@@ -10399,6 +10491,17 @@ function renderVisitantesHTML(lista) {
     return d > max ? d : max;
   }, new Date(0)));
 
+  // Monta "dd/mm/aaaa" + faixa de horário (se houver) para exibir no cartão.
+  function rotuloComHorario(g) {
+    if (g.dataRef.getTime() === 0) return '';
+    const meta = g.itens[0] || {};
+    const dataStr = g.dataRef.toLocaleDateString('pt-BR');
+    if (meta.horaInicio) {
+      return `${dataStr} ${meta.horaInicio}${meta.horaFim ? '–' + meta.horaFim : ''}`;
+    }
+    return dataStr;
+  }
+
   const gruposAgendados = grupos.filter(g => g.dataRef.toLocaleDateString('pt-BR') !== hojeStr && g.dataRef > new Date())
     .sort((a, b) => a.dataRef - b.dataRef); // mais próximos primeiro
   const gruposDoDia = grupos.filter(g => g.dataRef.toLocaleDateString('pt-BR') === hojeStr)
@@ -10414,7 +10517,7 @@ function renderVisitantesHTML(lista) {
         <div style="font-size:11px;color:var(--cyan);letter-spacing:1px;font-family:var(--font-display);text-transform:uppercase;margin-bottom:6px;">📅 Agendados</div>
         ${gruposAgendados.map(g => _visitCardLista(g.listaId, g.itens, {
           mostrarMorador, podeAdicionar, podeEditar, agendado: true,
-          rotulo: g.dataRef.toLocaleDateString('pt-BR')
+          rotulo: rotuloComHorario(g)
         })).join('')}
       </div>`;
   }
@@ -10422,7 +10525,7 @@ function renderVisitantesHTML(lista) {
   html += gruposDoDia.length
     ? gruposDoDia.map(g => _visitCardLista(g.listaId, g.itens, {
         mostrarMorador, podeAdicionar, podeEditar,
-        rotulo: g.dataRef.toLocaleDateString('pt-BR')
+        rotulo: rotuloComHorario(g)
       })).join('')
     : '<div style="text-align:center;color:var(--text-dim);font-size:12px;padding:10px 0;">Nenhum visitante hoje.</div>';
 
@@ -10449,7 +10552,7 @@ function renderVisitantesHTML(lista) {
               <div style="font-size:10px;color:var(--text-dim);margin:6px 0 2px;">${dataStr}</div>
               ${porData[dataStr].map(g => _visitCardLista(g.listaId, g.itens, {
                 mostrarMorador, podeAdicionar, podeEditar, dim: true,
-                rotulo: g.dataRef.getTime() === 0 ? '' : g.dataRef.toLocaleDateString('pt-BR')
+                rotulo: (g.itens[0] && g.itens[0].horaInicio) ? `${g.itens[0].horaInicio}${g.itens[0].horaFim ? '–' + g.itens[0].horaFim : ''}` : ''
               })).join('')}
             </div>
           `).join('')}
