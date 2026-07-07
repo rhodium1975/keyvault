@@ -8387,10 +8387,7 @@
           ${!entregue ? `
           <div class="enc-actions">
             ${_isMorador ? `
-            ${enc.reportadoPorMorador
-              ? `<div style="font-family:var(--font-display);font-size:9px;letter-spacing:1.5px;color:var(--red);padding:4px 2px;text-transform:uppercase;">⚠ Faltante reportado</div>`
-              : `<button class="enc-btn enc-btn-faltante" onclick="window.moradorReportarFaltante('${enc.id}', this)">⚠ Faltante</button>`
-            }
+            <div style="font-family:var(--font-display);font-size:9px;letter-spacing:1.5px;color:var(--text-dim);padding:4px 2px;text-transform:uppercase;">Aguardando retirada na portaria</div>
             ` : `
             <button class="enc-btn enc-btn-retirar enc-btn-sm" onclick="window.encAbrirRetirada('${enc.id}')">
               ✅ Recebida
@@ -8404,7 +8401,12 @@
             `}
           </div>` : `
           <div class="enc-actions">
-            ${_isMorador ? `` : `
+            ${_isMorador ? `
+            ${enc.reportadoPorMorador
+              ? `<div style="font-family:var(--font-display);font-size:9px;letter-spacing:1.5px;color:var(--red);padding:4px 2px;text-transform:uppercase;">⚠ Faltante reportado</div>`
+              : `<button class="enc-btn enc-btn-faltante" onclick="window.moradorReportarFaltante('${enc.id}', this)">⚠ Reportar Faltante</button>`
+            }
+            ` : `
             <button class="enc-btn enc-btn-del" onclick="window.encDeletar('${enc.id}')" title="Excluir" style="flex:1">
               🗑 Remover
             </button>
@@ -9188,17 +9190,11 @@ window.mostrarNotifEncomendaMorador = function(user) {
         : `📦 Você tem ${pendentes.length} encomendas aguardando`;
     lista.innerHTML = pendentes.map(e => {
       const hora = new Date(e.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      const jaReportado = !!e.reportadoPorMorador;
       return `<div class="enc-notif-banner-item">
         <div style="flex:1;min-width:0;">
           <div class="enc-notif-banner-item-apto">Apto ${e.apto}</div>
           <div class="enc-notif-banner-item-desc">${e.desc || 'Encomenda registrada'} &mdash; ${hora}</div>
         </div>
-        <button class="enc-notif-banner-item-faltante-btn${jaReportado ? ' reportado' : ''}"
-          onclick="window.reportarFaltanteMoradorBanner('${e.id}', this)"
-          ${jaReportado ? 'disabled' : ''}>
-          ${jaReportado ? '⚠ Reportado' : '⚠ Faltante'}
-        </button>
       </div>`;
     }).join('');
     banner.classList.add('open');
