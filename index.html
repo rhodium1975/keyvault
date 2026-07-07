@@ -3084,7 +3084,7 @@
     <div class="enc-list-wrap" id="encListWrap">
       <div id="encBuscaWrap" style="position:relative;margin:10px 0 6px;">
         <svg style="position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:0.4;pointer-events:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input id="encBuscaDestinatario" list="encDestinatarioOptions" placeholder="Buscar por destinatário..." oninput="renderEncomendas()" onclick="event.stopPropagation()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-body);font-size:13px;padding:8px 12px 8px 34px;outline:none;transition:border-color 0.2s;">
+        <input id="encBuscaDestinatario" name="kv_busca_destinatario" list="encDestinatarioOptions" placeholder="Buscar por destinatário..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')" oninput="renderEncomendas()" onclick="event.stopPropagation()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-body);font-size:13px;padding:8px 12px 8px 34px;outline:none;transition:border-color 0.2s;">
         <datalist id="encDestinatarioOptions"><option value="Fernando Silva Castilho"></option></datalist>
       </div>
       <div id="encList">
@@ -5033,6 +5033,8 @@
     document.getElementById('loginEmail').value = '';
     const _buscaEl = document.getElementById('busca');
     if (_buscaEl) _buscaEl.value = '';
+    const _buscaEncEl = document.getElementById('encBuscaDestinatario');
+    if (_buscaEncEl) _buscaEncEl.value = '';
     // Notifica todas as seções para resetarem para o estado sem sessão
     document.dispatchEvent(new CustomEvent('kv-logout'));
   };
@@ -9646,12 +9648,16 @@ const kvPrest = (() => {
 // Executado depois que todos os scripts foram carregados e o DOM está pronto.
 // Se já há sessão salva, esconde a tela de login e aplica o estado da UI.
 document.addEventListener('DOMContentLoaded', function() {
-  // Rede de segurança extra contra autopreenchimento do navegador nesse campo
-  var _buscaSafe = document.getElementById('busca');
-  if (_buscaSafe) {
-    _buscaSafe.value = '';
-    setTimeout(function() { _buscaSafe.value = ''; }, 300);
+  // Rede de segurança extra contra autopreenchimento do navegador nesses campos
+  var _camposAntiAutofill = ['busca', 'encBuscaDestinatario'];
+  function _limparCamposAntiAutofill() {
+    _camposAntiAutofill.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
   }
+  _limparCamposAntiAutofill();
+  setTimeout(_limparCamposAntiAutofill, 300);
   if (window.KV_AUTH && window.KV_AUTH.isLoggedIn()) {
     document.getElementById('loginScreen').classList.add('hidden');
     if (typeof atualizarSessionBadge === 'function') atualizarSessionBadge();
