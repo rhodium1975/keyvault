@@ -4358,7 +4358,7 @@
     </div>
     <div class="enc-modal-footer">
       <button class="btn-cancel" onclick="fecharEncModal()">Cancelar</button>
-      <button class="btn-action cyan" onclick="salvarEncomenda()">✓ Registrar</button>
+      <button class="btn-action cyan" id="encBtnSalvar" onclick="salvarEncomenda()">✓ Registrar</button>
     </div>
   </div>
 </div>
@@ -8189,26 +8189,105 @@
     };
   })();
 
-  // ── MÓDULO DE ENCOMENDAS ──
+  // ── MÓDULO DE ENCOMENDAS (FIRESTORE) ──
+  // Encomendas ficam em condominios/{condominioId}/encomendas/{id}.
+  // localStorage é usado só como cache local (tela não fica vazia enquanto
+  // o Firestore ainda não respondeu); a fonte de verdade é sempre o Firestore.
   (function() {
     let encomendas = [];
     let camStream = null;
     let fotoDataUrl = null;
     let editandoId = null;
+    let _unsubEncomendas = null;
 
-    // Carregar do embedded data ou localStorage
-    try {
-      const emb = _readEmbedded();
-      if (emb && emb.encomendas) encomendas = emb.encomendas;
-      else {
-        const saved = localStorage.getItem('kv_encomendas');
-        if (saved) encomendas = JSON.parse(saved);
-      }
-    } catch(e) { encomendas = []; }
+    function _condominioIdEnc() {
+      return window.KV_AUTH && KV_AUTH.getCondominioId ? KV_AUTH.getCondominioId() : null;
+    }
 
+    function _colEncomendas() {
+      const condominioId = _condominioIdEnc();
+      if (!condominioId) throw new Error('Nenhum condomínio ativo na sessão.');
+      return firebase.firestore()
+        .collection('condominios').doc(condominioId)
+        .collection('encomendas');
+    }
+
+    // Comprime a foto no navegador antes de subir pro Firestore: mantém os
+    // documentos pequenos (sem custo de Firebase Storage) e nítidos o
+    // suficiente pra identificar a encomenda.
+    function _comprimirFoto(dataUrl, maxLargura, qualidade) {
+      return new Promise((resolve) => {
+        if (!dataUrl) { resolve(null); return; }
+        try {
+          const img = new Image();
+          img.onload = function() {
+            const escala = Math.min(1, (maxLargura || 800) / img.width);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(img.width * escala));
+            canvas.height = Math.max(1, Math.round(img.height * escala));
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', qualidade || 0.55));
+          };
+          img.onerror = function() { resolve(null); };
+          img.src = dataUrl;
+        } catch(e) { resolve(null); }
+      });
+    }
+
+    // Cache local: só pra tela não ficar vazia por 1 frame no primeiro load.
     function salvarStorage() {
       try { localStorage.setItem('kv_encomendas', JSON.stringify(encomendas)); } catch(e) {}
-      _agendarSalvarArquivo();
+    }
+
+    // Carrega o cache local imediatamente (antes do Firestore responder)
+    try {
+      const saved = localStorage.getItem('kv_encomendas');
+      if (saved) encomendas = JSON.parse(saved);
+    } catch(e) { encomendas = []; }
+
+    // Listener em tempo real: qualquer alteração feita em outro dispositivo
+    // (porteiro registrando, morador reportando faltante, etc.) chega aqui
+    // automaticamente, sem precisar de F5.
+    function _iniciarListenerEncomendas() {
+      if (_unsubEncomendas) return;
+      const condominioId = _condominioIdEnc();
+      if (!condominioId) return;
+      try {
+        _unsubEncomendas = _colEncomendas()
+          .orderBy('ts', 'desc')
+          .onSnapshot(function(snap) {
+            encomendas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            salvarStorage();
+            renderEncomendas();
+            if (typeof atualizarEncBadge === 'function') atualizarEncBadge();
+          }, function(err) {
+            console.warn('Erro ao sincronizar encomendas do Firestore:', err.message);
+          });
+      } catch(e) { console.warn('Erro ao iniciar listener de encomendas:', e.message); }
+    }
+
+    function _pararListenerEncomendas() {
+      if (_unsubEncomendas) { _unsubEncomendas(); _unsubEncomendas = null; }
+    }
+
+    window._encEncontrarPorId = function(id) { return encomendas.find(e => e.id === id); };
+
+    // Atualiza um campo (ou vários) de UMA encomenda no Firestore.
+    // Usado por funções fora desta IIFE (ex.: banner do morador).
+    window._encAtualizarFirestore = async function(id, patch) {
+      await _colEncomendas().doc(id).set(patch, { merge: true });
+    };
+
+    document.addEventListener('kv-login',  _iniciarListenerEncomendas);
+    document.addEventListener('kv-logout', function() { _pararListenerEncomendas(); encomendas = []; salvarStorage(); renderEncomendas(); });
+    firebase.auth().onAuthStateChanged(function(user) {
+      if (user && window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) {
+        _iniciarListenerEncomendas();
+      }
+    });
+    // Caso o login já tenha ocorrido antes deste script terminar de carregar
+    if (window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) {
+      _iniciarListenerEncomendas();
     }
 
     function renderEncomendas() {
@@ -8742,7 +8821,7 @@
       document.getElementById('encFaltanteOverlay').classList.remove('open');
     };
 
-    window.salvarFaltante = function() {
+    window.salvarFaltante = async function() {
       const aptoEl = document.getElementById('faltanteApto');
       const descEl = document.getElementById('faltanteDesc');
       const apto   = aptoEl.value.trim();
@@ -8754,7 +8833,6 @@
       const encDesc = document.getElementById('faltanteEncDesc').value.trim();
       const _reportadoPorMorador = window.KV_AUTH && window.KV_AUTH.getRole() === 'morador';
       const enc = {
-        id: Date.now().toString(36),
         apto,
         desc: encDesc,
         foto: null,
@@ -8765,16 +8843,19 @@
         ts: Date.now(),
         entregueTs: null
       };
-      encomendas.unshift(enc);
-      salvarStorage();
-      adicionarEncLog('enc-faltante', enc);
-      fecharFaltante();
-      const wrap = document.getElementById('encListWrap');
-      const arrow = document.getElementById('encToggleArrow');
-      if (wrap) wrap.classList.remove('expanded');
-      if (arrow) arrow.classList.remove('open');
-      renderEncomendas();
-      mostrarNotif(`⚠️ Faltante reportado — Apto ${apto}!`);
+      try {
+        const ref = _colEncomendas().doc();
+        await ref.set({ ...enc, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+        adicionarEncLog('enc-faltante', enc);
+        fecharFaltante();
+        const wrap = document.getElementById('encListWrap');
+        const arrow = document.getElementById('encToggleArrow');
+        if (wrap) wrap.classList.remove('expanded');
+        if (arrow) arrow.classList.remove('open');
+        mostrarNotif(`⚠️ Faltante reportado — Apto ${apto}!`);
+      } catch(e) {
+        mostrarNotif('⚠ Erro ao reportar faltante: ' + e.message, 'grey');
+      }
     };
 
     document.getElementById('encFaltanteOverlay').addEventListener('click', function(e) {
@@ -8867,36 +8948,45 @@
     };
 
     // ── SALVAR ──
-    window.salvarEncomenda = function() {
+    window.salvarEncomenda = async function() {
       const apto = document.getElementById('encApto').value.trim();
       if (!apto) { document.getElementById('encApto').focus(); document.getElementById('encApto').style.borderColor='var(--red)'; setTimeout(()=>document.getElementById('encApto').style.borderColor='',1500); return; }
       const destinatarioVal = document.getElementById('encDestinatario').value.trim();
       if (!destinatarioVal) { document.getElementById('encDestinatario').focus(); document.getElementById('encDestinatario').style.borderColor='var(--red)'; setTimeout(()=>document.getElementById('encDestinatario').style.borderColor='',1500); return; }
       const isFaltante = !!(document.getElementById('encFaltanteToggle') && document.getElementById('encFaltanteToggle').classList.contains('ativo'));
       const faltanteDescVal = isFaltante ? (document.getElementById('encFaltanteDesc') ? document.getElementById('encFaltanteDesc').value.trim() : '') : '';
-      const enc = {
-        id: Date.now().toString(36),
-        apto,
-        destinatario: document.getElementById('encDestinatario').value.trim(),
-        desc: document.getElementById('encDesc').value.trim(),
-        foto: fotoDataUrl,
-        status: 'aguardando',
-        faltante: isFaltante,
-        faltanteDesc: faltanteDescVal,
-        ts: Date.now(),
-        entregueTs: null
-      };
-      encomendas.unshift(enc);
-      salvarStorage();
-      adicionarEncLog('enc-reg', enc);
-      if (typeof dispararPushNovaEncomenda === 'function') dispararPushNovaEncomenda(enc);
-      fecharEncModal();
-      const wrap = document.getElementById('encListWrap');
-      const arrow = document.getElementById('encToggleArrow');
-      if (wrap) wrap.classList.remove('expanded');
-      if (arrow) arrow.classList.remove('open');
-      renderEncomendas();
-      mostrarNotif(`✅ Encomenda do Apto ${apto} registrada!`);
+
+      const btnSalvar = document.getElementById('encBtnSalvar');
+      const btnSalvarTxtOriginal = btnSalvar ? btnSalvar.textContent : '';
+      if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.textContent = 'Salvando...'; }
+      try {
+        const fotoComprimida = await _comprimirFoto(fotoDataUrl, 800, 0.55);
+        const enc = {
+          apto,
+          destinatario: destinatarioVal,
+          desc: document.getElementById('encDesc').value.trim(),
+          foto: fotoComprimida,
+          status: 'aguardando',
+          faltante: isFaltante,
+          faltanteDesc: faltanteDescVal,
+          ts: Date.now(),
+          entregueTs: null
+        };
+        const ref = _colEncomendas().doc();
+        await ref.set({ ...enc, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+        adicionarEncLog('enc-reg', enc);
+        if (typeof dispararPushNovaEncomenda === 'function') dispararPushNovaEncomenda(enc);
+        fecharEncModal();
+        const wrap = document.getElementById('encListWrap');
+        const arrow = document.getElementById('encToggleArrow');
+        if (wrap) wrap.classList.remove('expanded');
+        if (arrow) arrow.classList.remove('open');
+        mostrarNotif(`✅ Encomenda do Apto ${apto} registrada!`);
+      } catch(e) {
+        mostrarNotif('⚠ Erro ao salvar encomenda: ' + e.message, 'grey');
+      } finally {
+        if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = btnSalvarTxtOriginal; }
+      }
     };
 
     // ── NOTIFICAR ──
@@ -8938,7 +9028,7 @@
       _encRetId = null;
     };
 
-    window.confirmarEncRet = function() {
+    window.confirmarEncRet = async function() {
       const enc = encomendas.find(e => e.id === _encRetId);
       if (!enc) return;
       const resp = document.getElementById('encRetResp').value.trim();
@@ -8948,16 +9038,20 @@
         setTimeout(() => document.getElementById('encRetResp').style.borderColor = '', 1200);
         return;
       }
-      enc.status = 'entregue';
-      enc.entregueTs = Date.now();
-      enc.retiradoPor = resp;
-
-      enc.retiradoObs = document.getElementById('encRetObs').value.trim() || null;
-      salvarStorage();
-      adicionarEncLog('enc-ret', enc, resp);
-      fecharEncRet();
-      renderEncomendas();
-      mostrarNotif(`✅ Retirada por ${resp} — Apto ${enc.apto} confirmada!`);
+      const patch = {
+        status: 'entregue',
+        entregueTs: Date.now(),
+        retiradoPor: resp,
+        retiradoObs: document.getElementById('encRetObs').value.trim() || null,
+      };
+      try {
+        await _colEncomendas().doc(enc.id).set(patch, { merge: true });
+        adicionarEncLog('enc-ret', { ...enc, ...patch }, resp);
+        fecharEncRet();
+        mostrarNotif(`✅ Retirada por ${resp} — Apto ${enc.apto} confirmada!`);
+      } catch(e) {
+        mostrarNotif('⚠ Erro ao confirmar retirada: ' + e.message, 'grey');
+      }
     };
 
     // Fechar ao clicar fora
@@ -8972,34 +9066,38 @@
     };
 
     // ── MARCAR ENTREGUE ──
-    window.encMarcarEntregue = function(id) {
+    window.encMarcarEntregue = async function(id) {
       const enc = encomendas.find(e => e.id === id);
       if (!enc) return;
-      enc.status = 'entregue';
-      enc.entregueTs = Date.now();
-      salvarStorage();
-      renderEncomendas();
-      mostrarNotif(`✅ Encomenda do Apto ${enc.apto} marcada como entregue!`);
+      try {
+        await _colEncomendas().doc(id).set({ status: 'entregue', entregueTs: Date.now() }, { merge: true });
+        mostrarNotif(`✅ Encomenda do Apto ${enc.apto} marcada como entregue!`);
+      } catch(e) {
+        mostrarNotif('⚠ Erro ao marcar como entregue: ' + e.message, 'grey');
+      }
     };
 
     // ── DELETAR ──
-    window.encDeletar = function(id) {
+    window.encDeletar = async function(id) {
       const enc = encomendas.find(e => e.id === id);
-      if (enc) adicionarEncLog('enc-del', enc);
-      encomendas = encomendas.filter(e => e.id !== id);
-      salvarStorage();
-      renderEncomendas();
+      try {
+        await _colEncomendas().doc(id).delete();
+        if (enc) adicionarEncLog('enc-del', enc);
+      } catch(e) {
+        mostrarNotif('⚠ Erro ao excluir encomenda: ' + e.message, 'grey');
+      }
     };
 
     // Morador reporta faltante direto no card — sem abrir nenhum modal
-    window.moradorReportarFaltante = function(id) {
+    window.moradorReportarFaltante = async function(id) {
       const enc = encomendas.find(e => e.id === id);
       if (!enc) return;
-      enc.reportadoPorMorador = true;
-      enc.faltante = true;
-      salvarStorage();
-      renderEncomendas();
-      mostrarNotif('⚠️ Faltante reportado — Apto ' + enc.apto + '!');
+      try {
+        await _colEncomendas().doc(id).set({ reportadoPorMorador: true, faltante: true }, { merge: true });
+        mostrarNotif('⚠️ Faltante reportado — Apto ' + enc.apto + '!');
+      } catch(e) {
+        mostrarNotif('⚠ Erro ao reportar faltante: ' + e.message, 'grey');
+      }
     };
 
     window.encMarcarFaltante = function(id) {
@@ -9049,13 +9147,10 @@
 
     function renderEncLog() {}
 
-    // Inicializar
+    // Inicializar (mostra o cache local; o listener do Firestore assume a
+    // partir daqui e re-renderiza sozinho a cada mudança — inclusive troca
+    // de sessão/perfil, sem precisar de F5)
     renderEncomendas();
-
-    // Re-renderizar sempre que a sessão mudar (login, logout ou novo cadastro)
-    // para aplicar imediatamente as restrições de perfil sem precisar de F5
-    document.addEventListener('kv-login',  function() { renderEncomendas(); atualizarEncBadge(); });
-    document.addEventListener('kv-logout', function() { renderEncomendas(); atualizarEncBadge(); });
   })();
 </script>
 
@@ -9136,24 +9231,23 @@ window.fecharEncNotifBanner = function() {
 };
 
 // Reporta mercadoria faltante direto do banner do morador (sem abrir outro modal)
-window.reportarFaltanteMoradorBanner = function(encId, btnEl) {
+window.reportarFaltanteMoradorBanner = async function(encId, btnEl) {
   try {
-    const encomendas = JSON.parse(localStorage.getItem('kv_encomendas') || '[]');
-    const idx = encomendas.findIndex(e => e.id === encId);
-    if (idx === -1) return;
-    encomendas[idx].reportadoPorMorador = true;
-    encomendas[idx].faltante = true;
-    if (!encomendas[idx].faltanteDesc) encomendas[idx].faltanteDesc = 'Reportado pelo morador';
-    localStorage.setItem('kv_encomendas', JSON.stringify(encomendas));
-    // Atualizar visual do botão imediatamente
+    // Atualizar visual do botão imediatamente (feedback instantâneo, antes da rede responder)
     if (btnEl) {
       btnEl.textContent = '⚠ Reportado';
       btnEl.classList.add('reportado');
       btnEl.disabled = true;
     }
-    // Re-renderizar lista de encomendas se disponível
-    if (typeof window.renderEncomendas === 'function') window.renderEncomendas();
-  } catch(e) {}
+    const encomendasCache = JSON.parse(localStorage.getItem('kv_encomendas') || '[]');
+    const enc = encomendasCache.find(e => e.id === encId);
+    const patch = { reportadoPorMorador: true, faltante: true };
+    if (!enc || !enc.faltanteDesc) patch.faltanteDesc = 'Reportado pelo morador';
+    await window._encAtualizarFirestore(encId, patch);
+    // O listener em tempo real do módulo de Encomendas já re-renderiza sozinho
+  } catch(e) {
+    if (btnEl) { btnEl.textContent = '⚠ Faltante'; btnEl.classList.remove('reportado'); btnEl.disabled = false; }
+  }
 };
 
 // Disparar notificação push ao CADASTRAR uma encomenda (para o morador destinatário)
