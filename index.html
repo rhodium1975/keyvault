@@ -9343,6 +9343,42 @@ const kvPrest = (() => {
 
   // Listener em tempo real: qualquer alteração feita em outro dispositivo
   // (porteiro aceitando, morador cancelando, etc.) chega aqui automaticamente.
+  let _arquivandoIds = new Set();
+
+  function _dataJaPassou(dataStr) {
+    if (!dataStr) return false;
+    return dataStr < hoje(); // formato 'YYYY-MM-DD': comparação de string funciona
+  }
+
+  // Varredura automática: agendamentos cuja data já passou (qualquer status)
+  // são movidos pro histórico sozinhos, mantendo a lista ativa limpa.
+  // Só roda quando quem está logado é equipe (síndico ou porteiro), porque
+  // são os únicos com permissão de escrever no histórico — e é intencional:
+  // isso significa que a "faxina" acontece na próxima vez que alguém da
+  // equipe abrir o app (não existe agendador rodando à meia-noite, pra não
+  // precisarmos de Cloud Functions e sair do plano gratuito do Firebase).
+  async function _arquivarVencidosAutomaticamente() {
+    const role = window.KV_AUTH && KV_AUTH.getRole ? KV_AUTH.getRole() : null;
+    if (role !== 'sindico' && role !== 'user') return;
+    const vencidos = agendamentos.filter(a => _dataJaPassou(a.data) && !_arquivandoIds.has(a.id));
+    for (const ag of vencidos) {
+      _arquivandoIds.add(ag.id);
+      try {
+        const { id, ...dadosSemId } = ag;
+        await colPrestHistorico().doc(id).set({
+          ...dadosSemId,
+          removidoEm: new Date().toLocaleString('pt-BR'),
+          arquivadoAutomaticamente: true,
+        });
+        await colPrest().doc(id).delete();
+      } catch(e) {
+        console.warn('Erro ao arquivar automaticamente prestador vencido:', e.message);
+      } finally {
+        _arquivandoIds.delete(ag.id);
+      }
+    }
+  }
+
   function _iniciarListeners() {
     const condominioId = _condominioIdPrest();
     if (!condominioId) return;
@@ -9352,6 +9388,7 @@ const kvPrest = (() => {
           agendamentos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           save();
           render();
+          _arquivarVencidosAutomaticamente();
         }, function(err) { console.warn('Erro ao sincronizar prestadores:', err.message); });
       } catch(e) { console.warn('Erro ao iniciar listener de prestadores:', e.message); }
     }
