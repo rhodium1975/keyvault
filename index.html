@@ -9280,7 +9280,9 @@ window.mascararCelular = function(el) {
 </script>
 
 <script>
-// ── MÓDULO PRESTADORES DE SERVIÇO ──
+// ── MÓDULO PRESTADORES DE SERVIÇO (FIRESTORE) ──
+// Ativos: condominios/{condominioId}/prestadores/{id}
+// Histórico (cancelados removidos da lista): condominios/{condominioId}/prestadoresHistorico/{id}
 const kvPrest = (() => {
   const STORAGE_KEY = 'kv_prestadores_v1';
   const HISTORICO_KEY = 'kv_prestadores_historico_v1';
@@ -9291,6 +9293,8 @@ const kvPrest = (() => {
   let historicoAberto = false;
   let tipoSel = 'eletrica';
   let editId = null;
+  let _unsubPrest = null;
+  let _unsubPrestHist = null;
 
   const TIPOS = {
     eletrica:    { label: 'Elétrica',    icon: '⚡' },
@@ -9309,16 +9313,64 @@ const kvPrest = (() => {
     cancelado:  { label: 'Cancelado',  cls: 'prest-badge-cancel' },
   };
 
-  function load() {
-    try { agendamentos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(e) { agendamentos = []; }
-    try { historico = JSON.parse(localStorage.getItem(HISTORICO_KEY) || '[]'); } catch(e) { historico = []; }
+  function _condominioIdPrest() {
+    return window.KV_AUTH && KV_AUTH.getCondominioId ? KV_AUTH.getCondominioId() : null;
   }
+
+  function colPrest() {
+    const condominioId = _condominioIdPrest();
+    if (!condominioId) throw new Error('Nenhum condomínio ativo na sessão.');
+    return firebase.firestore().collection('condominios').doc(condominioId).collection('prestadores');
+  }
+
+  function colPrestHistorico() {
+    const condominioId = _condominioIdPrest();
+    if (!condominioId) throw new Error('Nenhum condomínio ativo na sessão.');
+    return firebase.firestore().collection('condominios').doc(condominioId).collection('prestadoresHistorico');
+  }
+
+  // Cache local: só pra tela não ficar vazia por 1 frame no primeiro load.
   function save() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(agendamentos)); } catch(e) {}
   }
   function saveHistorico() {
     try { localStorage.setItem(HISTORICO_KEY, JSON.stringify(historico)); } catch(e) {}
   }
+
+  // Carrega o cache local imediatamente (antes do Firestore responder)
+  try { agendamentos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(e) { agendamentos = []; }
+  try { historico    = JSON.parse(localStorage.getItem(HISTORICO_KEY) || '[]'); } catch(e) { historico = []; }
+
+  // Listener em tempo real: qualquer alteração feita em outro dispositivo
+  // (porteiro aceitando, morador cancelando, etc.) chega aqui automaticamente.
+  function _iniciarListeners() {
+    const condominioId = _condominioIdPrest();
+    if (!condominioId) return;
+    if (!_unsubPrest) {
+      try {
+        _unsubPrest = colPrest().onSnapshot(function(snap) {
+          agendamentos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          save();
+          render();
+        }, function(err) { console.warn('Erro ao sincronizar prestadores:', err.message); });
+      } catch(e) { console.warn('Erro ao iniciar listener de prestadores:', e.message); }
+    }
+    if (!_unsubPrestHist) {
+      try {
+        _unsubPrestHist = colPrestHistorico().onSnapshot(function(snap) {
+          historico = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          saveHistorico();
+          if (historicoAberto) renderHistorico();
+        }, function(err) { console.warn('Erro ao sincronizar histórico de prestadores:', err.message); });
+      } catch(e) { console.warn('Erro ao iniciar listener de histórico de prestadores:', e.message); }
+    }
+  }
+
+  function _pararListeners() {
+    if (_unsubPrest) { _unsubPrest(); _unsubPrest = null; }
+    if (_unsubPrestHist) { _unsubPrestHist(); _unsubPrestHist = null; }
+  }
+
   function uid() { return Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
   function fmtData(iso) {
     if (!iso) return '';
@@ -9480,7 +9532,7 @@ const kvPrest = (() => {
     document.querySelectorAll('.prest-tipo-btn').forEach(b => b.classList.toggle('sel', b.dataset.t === t));
   }
 
-  function salvar() {
+  async function salvar() {
     const nome    = (document.getElementById('prestNome').value    || '').trim();
     const apto    = (document.getElementById('prestApto').value    || '').trim();
     const data    = (document.getElementById('prestData').value    || '').trim();
@@ -9492,21 +9544,27 @@ const kvPrest = (() => {
     if (!apto)    { highlight('prestApto');    return; }
     if (!data)    { highlight('prestData');    return; }
 
-    if (editId) {
-      const ag = agendamentos.find(a => a.id === editId);
-      if (ag) { Object.assign(ag, { nome, apto, data, hora, tipo: tipoSel, doc, obs }); }
-    } else {
-      agendamentos.unshift({ id: uid(), nome, apto, data, hora, tipo: tipoSel, doc, obs, status: 'aguardando', criadoEm: new Date().toLocaleString('pt-BR') });
+    try {
+      if (editId) {
+        await colPrest().doc(editId).set({ nome, apto, data, hora, tipo: tipoSel, doc, obs }, { merge: true });
+      } else {
+        const ref = colPrest().doc();
+        await ref.set({
+          nome, apto, data, hora, tipo: tipoSel, doc, obs, status: 'aguardando',
+          criadoEm: new Date().toLocaleString('pt-BR'),
+          criadoEmTs: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      fecharModal();
+      fecharDetalhe();
+      if (!listAberta) toggleList(null);
+      toast(editId ? '✏️ Agendamento atualizado!' : '✅ Prestador agendado!');
+    } catch(e) {
+      toast('⚠ Erro ao salvar: ' + e.message, 'var(--red)');
     }
-    save();
-    fecharModal();
-    fecharDetalhe();
-    if (!listAberta) toggleList(null);
-    render();
-    toast(editId ? '✏️ Agendamento atualizado!' : '✅ Prestador agendado!');
   }
 
-  function solicitar() {
+  async function solicitar() {
     const nome    = (document.getElementById('prestNome').value    || '').trim();
     const apto    = (document.getElementById('prestApto').value    || '').trim();
     const data    = (document.getElementById('prestData').value    || '').trim();
@@ -9522,20 +9580,23 @@ const kvPrest = (() => {
     const displayName = window.KV_AUTH ? window.KV_AUTH.getDisplayName() : 'Morador';
 
     const novoAg = {
-      id: uid(), nome, apto, data, hora, tipo: tipoSel, doc, obs,
+      nome, apto, data, hora, tipo: tipoSel, doc, obs,
       status: 'solicitado',
       solicitanteMorador: displayName || username || 'Morador',
       solicitanteUsername: username || '',
-      criadoEm: new Date().toLocaleString('pt-BR')
+      criadoEm: new Date().toLocaleString('pt-BR'),
     };
-    agendamentos.unshift(novoAg);
-    save();
-    fecharModal();
-    if (!listAberta) toggleList(null);
-    render();
-    // Abre automaticamente o detalhe do agendamento recém-criado
-    setTimeout(() => abrirDetalhe(novoAg.id), 150);
-    toast('✅ Serviço agendado!', 'var(--amber)');
+    try {
+      const ref = colPrest().doc();
+      await ref.set({ ...novoAg, criadoEmTs: firebase.firestore.FieldValue.serverTimestamp() });
+      fecharModal();
+      if (!listAberta) toggleList(null);
+      // Abre automaticamente o detalhe do agendamento recém-criado
+      setTimeout(() => abrirDetalhe(ref.id), 150);
+      toast('✅ Serviço agendado!', 'var(--amber)');
+    } catch(e) {
+      toast('⚠ Erro ao solicitar: ' + e.message, 'var(--red)');
+    }
   }
 
   function highlight(id) {
@@ -9620,46 +9681,52 @@ const kvPrest = (() => {
     if (!aberto) painel.classList.add('open');
   }
 
-  function mudarStatus(id, novoStatus) {
+  async function mudarStatus(id, novoStatus) {
     const ag = agendamentos.find(a => a.id === id);
     if (!ag) return;
-    ag.status = novoStatus;
-    save();
-    render();
-    const msgs = { aguardando: '📋 Solicitação aceita!', confirmado: '✅ Visita confirmada!', concluido: '🏁 Serviço concluído!', cancelado: '❌ Agendamento cancelado.' };
-    toast(msgs[novoStatus] || 'Status atualizado.');
-    // Fecha qualquer painel inline aberto
-    document.querySelectorAll('.prest-card-actions.open').forEach(p => p.classList.remove('open'));
-    fecharDetalhe();
-  }
-
-  function excluir(id) {
-    const ag = agendamentos.find(a => a.id === id);
-    if (!ag) return;
-    if (ag.status === 'cancelado') {
-      // Serviço cancelado: remove da lista ativa, mas preserva o registro no histórico
-      ag.removidoEm = new Date().toLocaleString('pt-BR');
-      historico.unshift(ag);
-      saveHistorico();
-      agendamentos = agendamentos.filter(a => a.id !== id);
-      save();
+    try {
+      await colPrest().doc(id).set({ status: novoStatus }, { merge: true });
+      const msgs = { aguardando: '📋 Solicitação aceita!', confirmado: '✅ Visita confirmada!', concluido: '🏁 Serviço concluído!', cancelado: '❌ Agendamento cancelado.' };
+      toast(msgs[novoStatus] || 'Status atualizado.');
+      // Fecha qualquer painel inline aberto
+      document.querySelectorAll('.prest-card-actions.open').forEach(p => p.classList.remove('open'));
       fecharDetalhe();
-      render();
-      toast('🗑 Serviço cancelado removido da lista. Registro mantido no histórico.', 'var(--amber)');
-    } else {
-      agendamentos = agendamentos.filter(a => a.id !== id);
-      save();
-      fecharDetalhe();
-      render();
-      toast('🗑 Agendamento removido.', 'var(--red)');
+    } catch(e) {
+      toast('⚠ Erro ao atualizar status: ' + e.message, 'var(--red)');
     }
   }
 
-  function excluirDoHistorico(id) {
-    historico = historico.filter(a => a.id !== id);
-    saveHistorico();
-    renderHistorico();
-    toast('🗑 Registro removido permanentemente do histórico.', 'var(--red)');
+  async function excluir(id) {
+    const ag = agendamentos.find(a => a.id === id);
+    if (!ag) return;
+    try {
+      if (ag.status === 'cancelado') {
+        // Serviço cancelado: move para o histórico e remove da lista ativa.
+        const { id: _oldId, ...dadosSemId } = ag;
+        await colPrestHistorico().doc(id).set({
+          ...dadosSemId,
+          removidoEm: new Date().toLocaleString('pt-BR'),
+        });
+        await colPrest().doc(id).delete();
+        fecharDetalhe();
+        toast('🗑 Serviço cancelado removido da lista. Registro mantido no histórico.', 'var(--amber)');
+      } else {
+        await colPrest().doc(id).delete();
+        fecharDetalhe();
+        toast('🗑 Agendamento removido.', 'var(--red)');
+      }
+    } catch(e) {
+      toast('⚠ Erro ao excluir: ' + e.message, 'var(--red)');
+    }
+  }
+
+  async function excluirDoHistorico(id) {
+    try {
+      await colPrestHistorico().doc(id).delete();
+      toast('🗑 Registro removido permanentemente do histórico.', 'var(--red)');
+    } catch(e) {
+      toast('⚠ Erro ao remover do histórico: ' + e.message, 'var(--red)');
+    }
   }
 
   function toggleHistorico(e) {
@@ -9719,11 +9786,16 @@ const kvPrest = (() => {
 
   // ── INIT ──
   function init() {
-    load();
     updateBadge();
-    // Reaplicar permissões após login ou logout
-    document.addEventListener('kv-login',  aplicarPermissoes);
-    document.addEventListener('kv-logout', aplicarPermissoes);
+    render();
+    // Liga/desliga os listeners do Firestore e reaplica permissões
+    // conforme login, logout ou troca de sessão.
+    document.addEventListener('kv-login',  function() { _iniciarListeners(); aplicarPermissoes(); });
+    document.addEventListener('kv-logout', function() { _pararListeners(); agendamentos = []; historico = []; save(); saveHistorico(); render(); aplicarPermissoes(); });
+    firebase.auth().onAuthStateChanged(function(user) {
+      if (user && window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) _iniciarListeners();
+    });
+    if (window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) _iniciarListeners();
     aplicarPermissoes();
   }
 
