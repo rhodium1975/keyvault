@@ -8200,8 +8200,9 @@
     let _arquivandoEncIds = new Set();
     const _MS_DIA = 24 * 60 * 60 * 1000;
 
-    // Varredura automática: encomendas ENTREGUES há mais de 1 dia, ou ainda
-    // AGUARDANDO retirada há mais de 7 dias, viram histórico sozinhas.
+    // Varredura automática: encomendas ainda AGUARDANDO retirada há mais de
+    // 7 dias viram histórico sozinhas (as ENTREGUES já arquivam na hora,
+    // direto em encMarcarEntregue/confirmarEncRet — não precisam esperar aqui).
     // Só roda para equipe (síndico/porteiro) — são os únicos com permissão
     // de fato necessária, e a "faxina" acontece na próxima vez que alguém
     // da equipe abrir o app (sem Cloud Functions, pra manter o plano gratuito).
@@ -8209,11 +8210,10 @@
       const role = window.KV_AUTH && KV_AUTH.getRole ? KV_AUTH.getRole() : null;
       if (role !== 'sindico' && role !== 'user') return;
       const agora = Date.now();
-      const candidatas = encomendas.filter(e => {
-        if (e.arquivada || _arquivandoEncIds.has(e.id)) return false;
-        if (e.status === 'entregue') return e.entregueTs && (agora - e.entregueTs) >= _MS_DIA;
-        return e.ts && (agora - e.ts) >= 7 * _MS_DIA;
-      });
+      const candidatas = encomendas.filter(e =>
+        !e.arquivada && !_arquivandoEncIds.has(e.id) &&
+        e.status !== 'entregue' && e.ts && (agora - e.ts) >= 7 * _MS_DIA
+      );
       for (const e of candidatas) {
         _arquivandoEncIds.add(e.id);
         try {
@@ -8286,6 +8286,25 @@
       }
     };
 
+    // O morador encontra a encomenda já entregue no histórico e reporta que,
+    // na verdade, não recebeu. Isso tira ela do histórico e devolve pra
+    // lista ativa, pra equipe ver e resolver.
+    window.encReportarFaltanteHistorico = async function(id) {
+      const role = window.KV_AUTH ? window.KV_AUTH.getRole() : null;
+      if (role !== 'morador') return;
+      try {
+        await _colEncomendas().doc(id).set({
+          reportadoPorMorador: true,
+          faltante: true,
+          faltanteDesc: 'Morador reportou que não recebeu, mesmo constando como entregue.',
+          arquivada: false,
+        }, { merge: true });
+        mostrarNotif('⚠️ Faltante reportado! A equipe vai verificar.');
+      } catch(e) {
+        mostrarNotif('⚠ Erro ao reportar faltante: ' + e.message, 'grey');
+      }
+    };
+
     window.toggleEncHistorico = function(event) {
       if (event) event.stopPropagation();
       const wrap  = document.getElementById('encHistoricoWrap');
@@ -8301,11 +8320,28 @@
       const el = document.getElementById('encHistoricoList');
       const badge = document.getElementById('encHistoricoBadge');
       if (!el) return;
-      const role = window.KV_AUTH ? window.KV_AUTH.getRole() : null;
-      const podeRestaurar = role === 'sindico' || role === 'user';
-      const arquivadas = encomendas
-        .filter(e => e.arquivada)
-        .sort((a, b) => (b.arquivadaEm || 0) - (a.arquivadaEm || 0));
+      const _sessao = window.KV_AUTH && window.KV_AUTH.isLoggedIn() ? {
+        role: window.KV_AUTH.getRole(),
+        displayName: window.KV_AUTH.getDisplayName(),
+        apto: (JSON.parse(localStorage.getItem('kv_auth_session_v1') || '{}').apto || '')
+      } : null;
+      const isMorador = _sessao && _sessao.role === 'morador';
+      const podeRestaurar = _sessao && (_sessao.role === 'sindico' || _sessao.role === 'user');
+
+      function _pertenceMorador(e) {
+        if (!_sessao) return true;
+        const nomeEnc  = (e.destinatario || '').toLowerCase().trim();
+        const nomeUser = (_sessao.displayName || '').toLowerCase().trim();
+        const aptoEnc  = (e.apto || '').toLowerCase().trim();
+        const aptoUser = (_sessao.apto || '').toLowerCase().trim();
+        return (nomeEnc && nomeUser && nomeEnc === nomeUser) || (aptoEnc && aptoUser && aptoEnc === aptoUser);
+      }
+
+      let arquivadas = encomendas.filter(e => e.arquivada);
+      // Privacidade: morador só vê o próprio histórico, igual já acontece na lista ativa.
+      if (isMorador) arquivadas = arquivadas.filter(_pertenceMorador);
+      arquivadas.sort((a, b) => (b.arquivadaEm || 0) - (a.arquivadaEm || 0));
+
       if (badge) badge.textContent = arquivadas.length;
       if (!arquivadas.length) {
         el.innerHTML = `<div class="empty" style="padding:16px 0;font-size:12px;">Nenhuma encomenda no histórico ainda.</div>`;
@@ -8315,6 +8351,7 @@
         const entregue = e.status === 'entregue';
         const dataRef = entregue ? e.entregueTs : e.ts;
         const hora = dataRef ? new Date(dataRef).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+        const jaReportado = !!e.reportadoPorMorador;
         return `
         <div class="enc-card${entregue ? ' entregue' : ''}" id="enc-hist-${e.id}" style="opacity:0.85;">
           <div class="enc-card-top">
@@ -8331,6 +8368,13 @@
             <button class="enc-btn enc-btn-retirar enc-btn-sm" onclick="window.encRestaurarDoHistorico('${e.id}')">
               ↺ Restaurar para conferir
             </button>
+          </div>` : ''}
+          ${isMorador && entregue ? `
+          <div class="enc-actions">
+            ${jaReportado
+              ? `<div style="font-family:var(--font-display);font-size:9px;letter-spacing:1.5px;color:var(--red);padding:4px 2px;text-transform:uppercase;">⚠ Faltante reportado</div>`
+              : `<button class="enc-btn enc-btn-faltante" onclick="window.encReportarFaltanteHistorico('${e.id}')">⚠ Não recebi — Reportar Faltante</button>`
+            }
           </div>` : ''}
         </div>`;
       }).join('');
@@ -9172,6 +9216,8 @@
         entregueTs: Date.now(),
         retiradoPor: resp,
         retiradoObs: document.getElementById('encRetObs').value.trim() || null,
+        arquivada: true,
+        arquivadaEm: Date.now(),
       };
       try {
         await _colEncomendas().doc(enc.id).set(patch, { merge: true });
@@ -9199,7 +9245,7 @@
       const enc = encomendas.find(e => e.id === id);
       if (!enc) return;
       try {
-        await _colEncomendas().doc(id).set({ status: 'entregue', entregueTs: Date.now() }, { merge: true });
+        await _colEncomendas().doc(id).set({ status: 'entregue', entregueTs: Date.now(), arquivada: true, arquivadaEm: Date.now() }, { merge: true });
         mostrarNotif(`✅ Encomenda do Apto ${enc.apto} marcada como entregue!`);
       } catch(e) {
         mostrarNotif('⚠ Erro ao marcar como entregue: ' + e.message, 'grey');
