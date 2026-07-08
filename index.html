@@ -5122,6 +5122,7 @@
           <input type="text" id="admMoradorApto" placeholder="Apartamento" class="login-input" style="width:100%;">
           <input type="text" id="admMoradorBloco" placeholder="Bloco (opcional)" class="login-input" style="width:100%;">
           <input type="email" id="admMoradorEmail" placeholder="E-mail" class="login-input" style="width:100%;">
+          <input type="tel" id="admMoradorCelular" placeholder="Celular/WhatsApp (opcional) — (11) 98765-4321" class="login-input" style="width:100%;" maxlength="15" oninput="mascararCelular(this)">
           <button type="button" onclick="adminCadastrarMoradorFirebase()" class="login-btn" style="width:100%;">+ CADASTRAR MORADOR</button>
           <div id="admMoradorResultado" style="display:none;font-size:12px;font-family:var(--font-display);letter-spacing:0.5px;padding:8px;border-radius:8px;"></div>
         </div>
@@ -5151,6 +5152,7 @@
           <input type="text" id="admMoradorApto" placeholder="Apartamento" class="login-input" style="width:100%;">
           <input type="text" id="admMoradorBloco" placeholder="Bloco (opcional)" class="login-input" style="width:100%;">
           <input type="email" id="admMoradorEmail" placeholder="E-mail" class="login-input" style="width:100%;">
+          <input type="tel" id="admMoradorCelular" placeholder="Celular/WhatsApp (opcional) — (11) 98765-4321" class="login-input" style="width:100%;" maxlength="15" oninput="mascararCelular(this)">
           <button type="button" onclick="adminCadastrarMoradorFirebase()" class="login-btn" style="width:100%;">+ CADASTRAR MORADOR</button>
           <div id="admMoradorResultado" style="display:none;font-size:12px;font-family:var(--font-display);letter-spacing:0.5px;padding:8px;border-radius:8px;"></div>
         </div>
@@ -9997,11 +9999,12 @@ const kvMoradores = (() => {
     return codigo;
   }
 
-  async function cadastrarMorador({ nome, apto, bloco, email }) {
+  async function cadastrarMorador({ nome, apto, bloco, email, celular }) {
     if (!nome || !apto || !email) throw new Error('Nome, apto e e-mail são obrigatórios.');
     const codigoConvite = gerarCodigoConvite();
     const ref = await colMoradores().add({
       nome, apto, bloco: bloco || '', email: email.trim().toLowerCase(),
+      celular: celular ? celular.replace(/\D/g, '') : '',
       codigoConvite,
       uid: null,
       status: 'convidado',
@@ -11169,20 +11172,42 @@ async function adminCadastrarMoradorFirebase() {
   const resEl = document.getElementById('admMoradorResultado');
   resEl.style.display = 'none';
   try {
-    const nome  = document.getElementById('admMoradorNome').value.trim();
-    const apto  = document.getElementById('admMoradorApto').value.trim();
-    const bloco = document.getElementById('admMoradorBloco').value.trim();
-    const email = document.getElementById('admMoradorEmail').value.trim();
-    const { codigoConvite } = await kvMoradores.cadastrarMorador({ nome, apto, bloco, email });
+    const nome    = document.getElementById('admMoradorNome').value.trim();
+    const apto    = document.getElementById('admMoradorApto').value.trim();
+    const bloco   = document.getElementById('admMoradorBloco').value.trim();
+    const email   = document.getElementById('admMoradorEmail').value.trim();
+    const celularEl = document.getElementById('admMoradorCelular');
+    const celular = celularEl ? celularEl.value.trim() : '';
+    const { codigoConvite } = await kvMoradores.cadastrarMorador({ nome, apto, bloco, email, celular });
+
     resEl.style.display = 'block';
     resEl.style.background = 'rgba(0,229,255,0.12)';
     resEl.style.border = '1px solid var(--cyan)';
     resEl.style.color = 'var(--cyan)';
-    resEl.textContent = `✓ Cadastrado! Código de convite: ${codigoConvite} — passe esse código pro morador.`;
+
+    const digitos = celular.replace(/\D/g, '');
+    const linkApp = window.location.origin + window.location.pathname;
+    const mensagem =
+      `Olá, ${nome.split(' ')[0]}! Você foi cadastrado(a) no KeyVault do condomínio.\n\n` +
+      `Acesse o app: ${linkApp}\n` +
+      `Toque em "Primeiro acesso" e use o código de convite: ${codigoConvite}\n\n` +
+      `Com esse código você cria sua senha e já pode usar o app.`;
+
+    if (digitos.length >= 10) {
+      const numeroWhats = digitos.length === 10 || digitos.length === 11 ? '55' + digitos : digitos;
+      const linkWhats = 'https://wa.me/' + numeroWhats + '?text=' + encodeURIComponent(mensagem);
+      resEl.innerHTML =
+        `✓ Cadastrado! Código de convite: <b>${codigoConvite}</b><br>` +
+        `<a href="${linkWhats}" target="_blank" rel="noopener" class="login-btn" style="display:block;text-align:center;margin-top:8px;background:#25D366;border-color:#25D366;color:#04140b;text-decoration:none;">📲 Enviar convite via WhatsApp</a>`;
+    } else {
+      resEl.textContent = `✓ Cadastrado! Código de convite: ${codigoConvite} — passe esse código pro morador.`;
+    }
+
     document.getElementById('admMoradorNome').value = '';
     document.getElementById('admMoradorApto').value = '';
     document.getElementById('admMoradorBloco').value = '';
     document.getElementById('admMoradorEmail').value = '';
+    if (celularEl) celularEl.value = '';
   } catch (e) {
     resEl.style.display = 'block';
     resEl.style.background = 'rgba(255,85,119,0.12)';
