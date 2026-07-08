@@ -4478,12 +4478,21 @@
   </div>
   <div style="font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--amber);opacity:0.6;margin:10px 0 8px;text-transform:uppercase;">🔧 Prestadores</div>
   <div class="help-item">
-    <div class="help-cmd">"agendar prestador" / "nova visita"</div>
+    <div class="help-cmd">"agendar prestador" / "novo prestador"</div>
     <div class="help-desc">Abre o formulário de agendamento</div>
   </div>
   <div class="help-item">
     <div class="help-cmd">"prestadores" / "agendamentos"</div>
     <div class="help-desc">Rola para a seção de prestadores</div>
+  </div>
+  <div style="font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--purple);opacity:0.6;margin:10px 0 8px;text-transform:uppercase;">👥 Visitantes</div>
+  <div class="help-item">
+    <div class="help-cmd">"agendar visita" / "novo visitante"</div>
+    <div class="help-desc">Abre o formulário de agendamento (apenas moradores)</div>
+  </div>
+  <div class="help-item">
+    <div class="help-cmd">"visitantes"</div>
+    <div class="help-desc">Rola para a seção de visitantes</div>
   </div>
   <div style="font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--cyan);opacity:0.6;margin:10px 0 8px;text-transform:uppercase;">📋 Geral</div>
   <div class="help-item">
@@ -4505,6 +4514,10 @@
   <div class="help-item">
     <div class="help-cmd">"categorias" / "gerenciar categorias"</div>
     <div class="help-desc">Abre o gerenciador de categorias</div>
+  </div>
+  <div class="help-item">
+    <div class="help-cmd">"usuários" / "gerenciar usuários"</div>
+    <div class="help-desc">Abre a gestão de usuários (apenas admin)</div>
   </div>
   <div class="help-item">
     <div class="help-cmd">"sair" / "logout" / "encerrar sessão"</div>
@@ -7947,8 +7960,42 @@
         return;
       }
 
+      // ── NOVA VISITA / CADASTRAR VISITANTE ──
+      if ((c.includes('agendar') && c.includes('visita')) || c.includes('nova visita') || c.includes('novo visitante') || c.includes('cadastrar visitante') || c.includes('registrar visitante') || c.includes('adicionar visitante')) {
+        const roleAtual = (window.KV_AUTH && KV_AUTH.getRole) ? KV_AUTH.getRole() : null;
+        if (roleAtual !== 'morador') {
+          showToast('info','Visitantes', cmd, 'Agendamento de visita disponível apenas para moradores.');
+          autoHideToast(3000);
+          return;
+        }
+        if (window.kvVisitantes && typeof window.kvVisitantes.toggleLista === 'function' && typeof window.kvVisitantes.toggleForm === 'function') {
+          const wrap = document.getElementById('visitListWrap');
+          if (wrap && wrap.style.display === 'none') window.kvVisitantes.toggleLista();
+          const formEl = document.getElementById('visitFormMorador');
+          if (!formEl || formEl.style.display === 'none') window.kvVisitantes.toggleForm();
+          const visitSector = document.getElementById('visitSector');
+          if (visitSector) visitSector.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          showToast('success','Novo visitante', cmd, 'Formulário de agendamento aberto.');
+        } else { showToast('error','Erro', cmd, 'Função não disponível.'); }
+        autoHideToast(2200);
+        return;
+      }
+
+      // ── VISITANTES (abrir/ver seção) ──
+      if (c.includes('visitante')) {
+        if (window.kvVisitantes && typeof window.kvVisitantes.toggleLista === 'function') {
+          const wrap = document.getElementById('visitListWrap');
+          if (wrap && wrap.style.display === 'none') window.kvVisitantes.toggleLista();
+        }
+        const visitSector = document.getElementById('visitSector');
+        if (visitSector) visitSector.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        showToast('success','Visitantes', cmd, 'Seção de visitantes destacada.');
+        autoHideToast(2500);
+        return;
+      }
+
       // ── AGENDAR PRESTADOR ──
-      if ((c.includes('agendar') && (c.includes('prestador') || c.includes('servico') || c.includes('serviço') || c.includes('visita'))) || c.includes('novo prestador') || c.includes('nova visita')) {
+      if ((c.includes('agendar') && (c.includes('prestador') || c.includes('servico') || c.includes('serviço'))) || c.includes('novo prestador')) {
         if (window.kvPrest && typeof window.kvPrest.abrirModal === 'function') {
           window.kvPrest.abrirModal();
           showToast('success','Agendar prestador', cmd, 'Formulário de agendamento aberto.');
@@ -8000,6 +8047,20 @@
           showToast('success','Trocar senha', cmd, 'Formulário de senha aberto.');
         } else { showToast('error','Erro', cmd, 'Função não disponível.'); }
         autoHideToast(2000);
+        return;
+      }
+
+      // ── GERENCIAR USUÁRIOS ──
+      if (c.includes('usuario') || c.includes('usuário') || c.includes('usuarios') || c.includes('usuários')) {
+        if (typeof abrirGerenciarUsuarios === 'function') {
+          if (window.KV_AUTH && KV_AUTH.isAdmin && KV_AUTH.isAdmin()) {
+            abrirGerenciarUsuarios();
+            showToast('success','Usuários', cmd, 'Gerenciar usuários aberto.');
+          } else {
+            showToast('info','Usuários', cmd, 'Disponível apenas para administradores.');
+          }
+        } else { showToast('error','Erro', cmd, 'Função não disponível.'); }
+        autoHideToast(2200);
         return;
       }
 
