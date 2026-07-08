@@ -8305,6 +8305,24 @@
       }
     };
 
+    // A equipe resolveu o caso de faltante (encontrou a encomenda, entregou
+    // de fato, etc.) — volta pro histórico sozinha, mantendo o registro de
+    // que existiu um faltante e que foi resolvido.
+    window.encResolverFaltante = async function(id) {
+      const role = window.KV_AUTH ? window.KV_AUTH.getRole() : null;
+      if (role !== 'sindico' && role !== 'user') return;
+      try {
+        await _colEncomendas().doc(id).set({
+          arquivada: true,
+          arquivadaEm: Date.now(),
+          faltanteResolvido: true,
+        }, { merge: true });
+        mostrarNotif('✅ Caso resolvido — movido para o histórico.');
+      } catch(e) {
+        mostrarNotif('⚠ Erro ao marcar como resolvido: ' + e.message, 'grey');
+      }
+    };
+
     window.toggleEncHistorico = function(event) {
       if (event) event.stopPropagation();
       const wrap  = document.getElementById('encHistoricoWrap');
@@ -8352,6 +8370,9 @@
         const dataRef = entregue ? e.entregueTs : e.ts;
         const hora = dataRef ? new Date(dataRef).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
         const jaReportado = !!e.reportadoPorMorador;
+        const fotoHtml = e.foto
+          ? `<img class="enc-photo-thumb" src="${e.foto}" alt="foto" onclick="window.encZoomFoto('${e.id}')" title="Ver foto">`
+          : `<div style="width:48px;height:48px;border-radius:8px;background:var(--bg3);border:1px dashed rgba(213,0,249,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📦</div>`;
         return `
         <div class="enc-card${entregue ? ' entregue' : ''}" id="enc-hist-${e.id}" style="opacity:0.85;">
           <div class="enc-card-top">
@@ -8361,7 +8382,14 @@
               <div class="enc-desc">${e.desc || 'Encomenda registrada'}</div>
               <div class="enc-meta"><span>🕐 ${hora}</span></div>
             </div>
-            <span class="enc-badge ${entregue ? 'enc-badge-entreg' : 'enc-badge-aguard'}">${entregue ? 'Entregue' : 'Aguardando'}</span>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+              ${e.faltante
+                ? (e.faltanteResolvido
+                    ? `<span class="enc-badge" style="background:rgba(0,200,150,0.15);color:#00c896;border:1px solid rgba(0,200,150,0.4);">✅ Faltante resolvido</span>`
+                    : `<span class="enc-badge enc-badge-faltante">⚠ Faltante</span>`)
+                : `<span class="enc-badge ${entregue ? 'enc-badge-entreg' : 'enc-badge-aguard'}">${entregue ? 'Entregue' : 'Aguardando'}</span>`}
+              ${fotoHtml}
+            </div>
           </div>
           ${podeRestaurar ? `
           <div class="enc-actions">
@@ -8371,9 +8399,11 @@
           </div>` : ''}
           ${isMorador && entregue ? `
           <div class="enc-actions">
-            ${jaReportado
-              ? `<div style="font-family:var(--font-display);font-size:9px;letter-spacing:1.5px;color:var(--red);padding:4px 2px;text-transform:uppercase;">⚠ Faltante reportado</div>`
-              : `<button class="enc-btn enc-btn-faltante" onclick="window.encReportarFaltanteHistorico('${e.id}')">⚠ Não recebi — Reportar Faltante</button>`
+            ${e.faltanteResolvido
+              ? `<div style="font-family:var(--font-display);font-size:9px;letter-spacing:1.5px;color:#00c896;padding:4px 2px;text-transform:uppercase;">✅ Faltante resolvido pela equipe</div>`
+              : jaReportado
+                ? `<div style="font-family:var(--font-display);font-size:9px;letter-spacing:1.5px;color:var(--red);padding:4px 2px;text-transform:uppercase;">⚠ Faltante reportado</div>`
+                : `<button class="enc-btn enc-btn-faltante" onclick="window.encReportarFaltanteHistorico('${e.id}')">⚠ Não recebi — Reportar Faltante</button>`
             }
           </div>` : ''}
         </div>`;
@@ -8509,7 +8539,12 @@
               : `<button class="enc-btn enc-btn-faltante" onclick="window.moradorReportarFaltante('${enc.id}', this)">⚠ Reportar Faltante</button>`
             }
             ` : `
-            <button class="enc-btn enc-btn-del" onclick="window.encDeletar('${enc.id}')" title="Excluir" style="flex:1">
+            ${enc.faltante ? `
+            <button class="enc-btn enc-btn-retirar enc-btn-sm" onclick="window.encResolverFaltante('${enc.id}')">
+              ✅ Resolvido
+            </button>
+            ` : ''}
+            <button class="enc-btn enc-btn-del" onclick="window.encDeletar('${enc.id}')" title="Excluir" style="${enc.faltante ? '' : 'flex:1'}">
               🗑 Remover
             </button>
             `}
