@@ -11055,8 +11055,13 @@ async function testePrimeiroAcesso() {
   let _deferredInstallPrompt = null;
 
   function jaInstalado() {
+    // 1) Está rodando em modo standalone agora (aberto pelo ícone) → instalado.
+    // 2) Já instalou antes nesse navegador (lembrado via localStorage), mesmo
+    //    que agora esteja sendo aberto numa aba normal do Chrome/Safari —
+    //    o navegador não avisa sozinho nesse caso, por isso guardamos a info.
     return window.matchMedia('(display-mode: standalone)').matches
-        || window.navigator.standalone === true; // iOS
+        || window.navigator.standalone === true // iOS
+        || localStorage.getItem('kv_pwa_installed') === '1';
   }
 
   window.addEventListener('beforeinstallprompt', (e) => {
@@ -11064,6 +11069,15 @@ async function testePrimeiroAcesso() {
     _deferredInstallPrompt = e;
     const btn = document.getElementById('pwaInstallBtn');
     if (btn) btn.style.display = 'block';
+  });
+
+  // Disparado pelo navegador assim que a instalação é concluída de fato
+  // (Android/Chrome). É o sinal mais confiável que existe — usamos ele pra
+  // gravar a "lembrança" permanente de que o app já foi instalado.
+  window.addEventListener('appinstalled', () => {
+    try { localStorage.setItem('kv_pwa_installed', '1'); } catch(e) {}
+    const banner = document.getElementById('pwaInstallBanner');
+    if (banner) banner.style.display = 'none';
   });
 
   function executarInstalarPWA() {
@@ -11076,6 +11090,14 @@ async function testePrimeiroAcesso() {
   }
 
   function configurarBannerInstalacao() {
+    // Se está rodando em modo instalado agora (aberto pelo ícone), grava a
+    // lembrança permanente — cobre quem já tinha instalado antes dessa
+    // correção existir, e que o app nunca teve chance de "aprender" via
+    // appinstalled.
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+      try { localStorage.setItem('kv_pwa_installed', '1'); } catch(e) {}
+    }
+
     if (jaInstalado()) return; // já instalado, não mostra nada
 
     const banner = document.getElementById('pwaInstallBanner');
