@@ -4580,8 +4580,8 @@
   <div class="chpwd-modal">
     <div class="chpwd-body">
       <div class="chpwd-title">🔑 Alterar Senha</div>
-      <label class="login-label" for="chpwdEmail">Conta</label>
-      <input class="login-input" type="text" id="chpwdEmail" style="margin-bottom:12px;opacity:0.7;" readonly disabled>
+      <label class="login-label" for="chpwdUser">Usuário</label>
+      <input class="login-input" type="text" id="chpwdUser" placeholder="Nome do usuário" style="margin-bottom:12px" autocapitalize="none">
       <label class="login-label" for="chpwdOld">Senha atual</label>
       <div class="login-field-pwd" style="margin-bottom:12px">
         <input class="login-input" type="password" id="chpwdOld" placeholder="Senha atual">
@@ -4613,10 +4613,6 @@
 </div>
 
 <!-- GERENCIAR USUÁRIOS (admin only) -->
-<!-- Conteúdo é 100% gerado dinamicamente por renderGerenciarUsuarios() ao abrir o painel
-     (ver window.abrirGerenciarUsuarios). Não colocar dados de moradores/usuários aqui:
-     qualquer HTML estático neste bloco fica exposto no código-fonte da página para
-     qualquer visitante, mesmo sem estar logado. -->
 <div class="usermgmt-overlay" id="usermgmtOverlay">
   <div class="usermgmt-sheet">
     <div class="usermgmt-handle"></div>
@@ -4624,7 +4620,79 @@
       <div class="usermgmt-title">👥 Gerenciar Usuários</div>
       <button class="rel-close" onclick="fecharGerenciarUsuarios()" style="padding:5px 12px">✕ Fechar</button>
     </div>
-    <div class="usermgmt-body" id="usermgmtBody"></div>
+    <div class="usermgmt-body" id="usermgmtBody">
+      <div class="usermgmt-section">
+        <div class="usermgmt-section-title">Usuários cadastrados</div>
+        
+          <div class="user-entry">
+            <div class="user-entry-info">
+              <div class="user-entry-name">Administrador</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span class="user-entry-role admin">🔐 Administrador</span>
+                
+              </div>
+              <div style="font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;margin-top:2px">@admin</div>
+            </div>
+            <div class="user-entry-actions">
+              <button class="user-action-btn edit" onclick="abrirTrocarSenha('admin')">🔑</button>
+              <button class="user-action-btn del" onclick="confirmarDelUser('admin')">🗑</button>
+            </div>
+          </div>
+        
+          <div class="user-entry">
+            <div class="user-entry-info">
+              <div class="user-entry-name">Ketelyn Hager da Silva</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span class="user-entry-role user">👤 Usuário</span>
+                
+              </div>
+              <div style="font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;margin-top:2px">@ketelyn</div>
+            </div>
+            <div class="user-entry-actions">
+              <button class="user-action-btn edit" onclick="abrirTrocarSenha('ketelyn')">🔑</button>
+              <button class="user-action-btn del" onclick="confirmarDelUser('ketelyn')">🗑</button>
+            </div>
+          </div>
+        
+          <div class="user-entry">
+            <div class="user-entry-info">
+              <div class="user-entry-name">Fernando Silva Castilho</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span class="user-entry-role morador">🏠 Morador</span>
+                <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:4px 10px;border-radius:6px;background:rgba(213,0,249,0.1);border:1px solid rgba(213,0,249,0.35);color:var(--purple);font-weight:600;">Apto 100</span>
+              </div>
+              <div style="font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;margin-top:2px">@castilho</div>
+            </div>
+            <div class="user-entry-actions">
+              <button class="user-action-btn edit" onclick="abrirTrocarSenha('castilho')">🔑</button>
+              <button class="user-action-btn del" onclick="confirmarDelUser('castilho')">🗑</button>
+            </div>
+          </div>
+        
+          <div class="user-entry">
+            <div class="user-entry-info">
+              <div class="user-entry-name">Bruno Cardoso</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span class="user-entry-role morador">🏠 Morador</span>
+                <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:4px 10px;border-radius:6px;background:rgba(213,0,249,0.1);border:1px solid rgba(213,0,249,0.35);color:var(--purple);font-weight:600;">Apto 101</span>
+              </div>
+              <div style="font-size:10px;color:var(--text-dim);font-family:var(--font-display);letter-spacing:1px;margin-top:2px">@bruno</div>
+            </div>
+            <div class="user-entry-actions">
+              <button class="user-action-btn edit" onclick="abrirTrocarSenha('bruno')">🔑</button>
+              <button class="user-action-btn del" onclick="confirmarDelUser('bruno')">🗑</button>
+            </div>
+          </div>
+        
+      </div>
+
+      <div class="usermgmt-section">
+        <div class="usermgmt-section-title">Adicionar usuário</div>
+        <div class="add-user-form">
+          <div class="login-error-msg" id="newUserErr" style="display:none"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -4656,10 +4724,12 @@
   'use strict';
 
   // ── STORAGE KEY ──
-  // (login/senha reais são 100% Firebase Auth — ver KV_TENANT.login mais abaixo.
-  //  Não existe mais sistema de usuários/senhas em localStorage neste arquivo.)
+  const AUTH_KEY  = 'kv_auth_users_v1';
   const SESS_KEY  = 'kv_auth_session_v1';
 
+  // ── SENHAS PADRÃO (hash simples para persistência local) ──
+  // Usuário padrão: admin / admin123 | porteiro / porteiro123
+  
   // ── DEBOUNCE PARA BUSCA (PERFORMANCE) ──
   function debounce(func, wait) {
     let timeout;
@@ -4673,6 +4743,34 @@
     };
   }
 
+
+  function simpleHash(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = (h * 0x01000193) >>> 0;
+    }
+    return h.toString(16);
+  }
+
+  function defaultUsers() {
+    return [
+      { username: 'admin',    passHash: simpleHash('admin123'),    role: 'admin',  displayName: 'Administrador' },
+      { username: 'porteiro', passHash: simpleHash('porteiro123'), role: 'user',   displayName: 'Porteiro' },
+    ];
+  }
+
+  function loadUsers() {
+    try {
+      const raw = localStorage.getItem(AUTH_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    return defaultUsers();
+  }
+
+  function saveUsers(users) {
+    try { localStorage.setItem(AUTH_KEY, JSON.stringify(users)); } catch(e) {}
+  }
 
   // ── SESSÃO ──
   // Usa sessionStorage: dura apenas enquanto a aba estiver aberta.
@@ -4706,6 +4804,9 @@
     getUsername:    () => _session ? _session.username : null,
     getDisplayName: () => _session ? _session.displayName : null,
     getCondominioId:() => _session ? _session.condominioId : null,
+    getUsers:       loadUsers,
+    simpleHash,
+    saveUsers,
     saveSession,
     clearSession,
   };
@@ -4887,60 +4988,56 @@
     document.dispatchEvent(new CustomEvent('kv-logout'));
   };
 
-  // ── TROCAR SENHA (Firebase Auth real) ──
-  window.abrirTrocarSenha = function() {
-    const user = firebase.auth().currentUser;
-    if (!user) return;
-    document.getElementById('chpwdEmail').value   = user.email || '';
+  // ── TROCAR SENHA ──
+  window.abrirTrocarSenha = function(username) {
+    document.getElementById('chpwdUser').value    = username || (KV_AUTH.getUsername() || '');
     document.getElementById('chpwdOld').value     = '';
     document.getElementById('chpwdNew').value     = '';
     document.getElementById('chpwdConfirm').value = '';
     document.getElementById('chpwdError').style.display = 'none';
+    // Se admin está trocando pra outro usuário, permitir
+    document.getElementById('chpwdUser').readOnly = !KV_AUTH.isAdmin();
     document.getElementById('chpwdOverlay').classList.add('open');
-    setTimeout(() => document.getElementById('chpwdOld').focus(), 150);
+    setTimeout(() => document.getElementById('chpwdUser').focus(), 150);
   };
 
   window.fecharTrocarSenha = function() {
     document.getElementById('chpwdOverlay').classList.remove('open');
   };
 
-  window.confirmarTrocarSenha = async function() {
-    const oldPwd  = document.getElementById('chpwdOld').value;
-    const newPwd  = document.getElementById('chpwdNew').value;
-    const confirm = document.getElementById('chpwdConfirm').value;
-    const errEl   = document.getElementById('chpwdError');
-    const btn     = document.querySelector('.chpwd-footer .btn-action');
+  window.confirmarTrocarSenha = function() {
+    const username = document.getElementById('chpwdUser').value.trim();
+    const oldPwd   = document.getElementById('chpwdOld').value;
+    const newPwd   = document.getElementById('chpwdNew').value;
+    const confirm  = document.getElementById('chpwdConfirm').value;
+    const errEl    = document.getElementById('chpwdError');
     errEl.style.display = 'none';
 
     const showErr = (msg) => { errEl.textContent = msg; errEl.style.display = 'block'; };
 
-    const user = firebase.auth().currentUser;
-    if (!user || !user.email) return showErr('Sessão inválida — faça login novamente.');
+    const users = loadUsers();
+    const user  = users.find(u => u.username === username);
+    if (!user) return showErr('Usuário não encontrado.');
 
-    if (!oldPwd) return showErr('Informe a senha atual.');
-    if (!newPwd || newPwd.length < 6) return showErr('Nova senha deve ter ao menos 6 caracteres.');
+    // Admin pode trocar senha de qualquer usuário sem saber a senha atual
+    const isAdminAction = KV_AUTH.isAdmin() && username !== KV_AUTH.getUsername();
+    if (!isAdminAction) {
+      if (user.passHash !== simpleHash(oldPwd)) return showErr('Senha atual incorreta.');
+    }
+
+    if (!newPwd || newPwd.length < 4) return showErr('Nova senha deve ter ao menos 4 caracteres.');
     if (newPwd !== confirm) return showErr('As senhas não coincidem.');
 
-    if (btn) { btn.disabled = true; btn.textContent = 'SALVANDO...'; }
-    try {
-      // Firebase exige reautenticação recente antes de trocar a senha
-      const cred = firebase.auth.EmailAuthProvider.credential(user.email, oldPwd);
-      await user.reauthenticateWithCredential(cred);
-      await user.updatePassword(newPwd);
-      fecharTrocarSenha();
+    user.passHash = simpleHash(newPwd);
+    saveUsers(users);
+    fecharTrocarSenha();
 
-      const t = document.createElement('div');
-      t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--green);border-radius:10px;padding:9px 18px;font-size:11px;color:var(--green);z-index:9999;white-space:nowrap;font-family:var(--font-display);letter-spacing:1px;';
-      t.textContent = '✓ Senha alterada com sucesso!';
-      document.body.appendChild(t);
-      setTimeout(() => t.remove(), 2500);
-    } catch (e) {
-      if (e && e.code === 'auth/wrong-password') showErr('Senha atual incorreta.');
-      else if (e && e.code === 'auth/requires-recent-login') showErr('Por segurança, faça login novamente e tente de novo.');
-      else showErr(typeof traduzirErroFirebase === 'function' ? traduzirErroFirebase(e) : (e.message || 'Erro ao trocar senha.'));
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '✔ Salvar'; }
-    }
+    // toast
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--green);border-radius:10px;padding:9px 18px;font-size:11px;color:var(--green);z-index:9999;white-space:nowrap;font-family:var(--font-display);letter-spacing:1px;';
+    t.textContent = '✓ Senha alterada com sucesso!';
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
   };
 
   // ── GERENCIAR USUÁRIOS ──
@@ -4949,25 +5046,6 @@
     renderGerenciarUsuarios();
     document.getElementById('usermgmtOverlay').classList.add('open');
   };
-
-  function injetarPainelCadastroMoradorFirebase() {
-    const body = document.getElementById('usermgmtBody');
-    if (!body || document.getElementById('admMoradorNome')) return; // já existe, não duplica
-    const html = `
-      <div class="usermgmt-section">
-        <div class="usermgmt-section-title">📦 Cadastrar morador (Firebase / Firestore)</div>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
-          <input type="text" id="admMoradorNome" placeholder="Nome do morador" class="login-input" style="width:100%;">
-          <input type="text" id="admMoradorApto" placeholder="Apartamento" class="login-input" style="width:100%;">
-          <input type="text" id="admMoradorBloco" placeholder="Bloco (opcional)" class="login-input" style="width:100%;">
-          <input type="email" id="admMoradorEmail" placeholder="E-mail" class="login-input" style="width:100%;">
-          <input type="tel" id="admMoradorTelefone" placeholder="Telefone com DDD (ex: 11987654321)" class="login-input" style="width:100%;">
-          <button type="button" onclick="adminCadastrarMoradorFirebase()" class="login-btn" style="width:100%;">+ CADASTRAR MORADOR</button>
-          <div id="admMoradorResultado" style="display:none;font-size:12px;font-family:var(--font-display);letter-spacing:0.5px;padding:8px;border-radius:8px;"></div>
-        </div>
-      </div>`;
-    body.insertAdjacentHTML('afterbegin', html);
-  }
 
   window.fecharGerenciarUsuarios = function() {
     document.getElementById('usermgmtOverlay').classList.remove('open');
@@ -5045,6 +5123,56 @@
     } catch(e) {
       alert('Erro ao excluir: ' + e.message);
     }
+  };
+
+  window.toggleNewUserRole = function(role) {
+    window._newUserRole = role;
+    document.querySelectorAll('#newUserRoleToggle .role-toggle-btn').forEach(b => {
+      const txt = b.textContent;
+      let cls = 'role-toggle-btn';
+      if (txt.includes('Admin')   && role === 'admin')   cls += ' sel-admin';
+      if (txt.includes('Usuário') && role === 'user')    cls += ' sel-user';
+      b.className = cls;
+    });
+  };
+
+  window.confirmarNovoUsuario = function() {
+    const displayName = document.getElementById('newUserName').value.trim();
+    const username    = document.getElementById('newUserLogin').value.trim().toLowerCase();
+    const password    = document.getElementById('newUserPass').value;
+    const errEl       = document.getElementById('newUserErr');
+    errEl.style.display = 'none';
+
+    const showErr = (msg) => { errEl.textContent = msg; errEl.style.display = 'block'; };
+    if (!displayName) return showErr('Informe o nome de exibição.');
+    if (!username || username.length < 2) return showErr('Login inválido (mínimo 2 caracteres).');
+    if (!password || password.length < 4) return showErr('Senha deve ter ao menos 4 caracteres.');
+
+    const users = loadUsers();
+    if (users.find(u => u.username === username)) return showErr('Esse login já está em uso.');
+
+    users.push({ username, passHash: simpleHash(password), role: window._newUserRole, displayName });
+    saveUsers(users);
+    renderGerenciarUsuarios();
+    // Notifica o sistema sobre o novo usuário — útil se outra aba ou seção depender da lista
+    document.dispatchEvent(new CustomEvent('kv-user-updated', { detail: { username } }));
+
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--green);border-radius:10px;padding:9px 18px;font-size:11px;color:var(--green);z-index:9999;white-space:nowrap;font-family:var(--font-display);letter-spacing:1px;';
+    t.textContent = '✓ Usuário adicionado!';
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2200);
+  };
+
+  window.confirmarDelUser = function(username) {
+    if (!KV_AUTH.isAdmin()) return;
+    if (username === KV_AUTH.getUsername()) {
+      alert('Você não pode excluir seu próprio usuário durante a sessão.'); return;
+    }
+    if (!confirm('Excluir o usuário "' + username + '"?')) return;
+    let users = loadUsers().filter(u => u.username !== username);
+    saveUsers(users);
+    renderGerenciarUsuarios();
   };
 
   // ── APLICAR RESTRIÇÕES POR PERFIL ──
@@ -9234,7 +9362,6 @@
         const ref = _colEncomendas().doc();
         await ref.set({ ...enc, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
         adicionarEncLog('enc-reg', enc);
-        if (typeof dispararPushNovaEncomenda === 'function') dispararPushNovaEncomenda(enc);
         fecharEncModal();
         const wrap = document.getElementById('encListWrap');
         const arrow = document.getElementById('encToggleArrow');
@@ -9484,47 +9611,6 @@ window.fecharEncNotifBanner = function() {
   const banner = document.getElementById('encNotifBanner');
   if (banner) banner.classList.remove('open');
 };
-
-// Reporta mercadoria faltante direto do banner do morador (sem abrir outro modal)
-window.reportarFaltanteMoradorBanner = async function(encId, btnEl) {
-  try {
-    // Atualizar visual do botão imediatamente (feedback instantâneo, antes da rede responder)
-    if (btnEl) {
-      btnEl.textContent = '⚠ Reportado';
-      btnEl.classList.add('reportado');
-      btnEl.disabled = true;
-    }
-    const encomendasCache = JSON.parse(localStorage.getItem('kv_encomendas') || '[]');
-    const enc = encomendasCache.find(e => e.id === encId);
-    const patch = { reportadoPorMorador: true, faltante: true };
-    if (!enc || !enc.faltanteDesc) patch.faltanteDesc = 'Reportado pelo morador';
-    await window._encAtualizarFirestore(encId, patch);
-    // O listener em tempo real do módulo de Encomendas já re-renderiza sozinho
-  } catch(e) {
-    if (btnEl) { btnEl.textContent = '⚠ Faltante'; btnEl.classList.remove('reportado'); btnEl.disabled = false; }
-  }
-};
-
-// Disparar notificação push ao CADASTRAR uma encomenda (para o morador destinatário)
-function dispararPushNovaEncomenda(enc) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  try {
-    const users = JSON.parse(localStorage.getItem('kv_users_v1') || '[]');
-    const nomeEnc = (enc.destinatario || '').toLowerCase().trim();
-    const aptoEnc = (enc.apto || '').toLowerCase().trim();
-    const destinatario = users.find(u =>
-      u.role === 'morador' && (
-        (nomeEnc && (u.displayName || u.username || '').toLowerCase().trim() === nomeEnc) ||
-        (aptoEnc && (u.apto || '').toLowerCase().trim() === aptoEnc)
-      )
-    );
-    if (!destinatario) return;
-    new Notification('📦 KeyVault — Nova Encomenda', {
-      body: `${destinatario.displayName || destinatario.username}, chegou uma encomenda para o Apto ${enc.apto}!`,
-      tag: 'kv-enc-nova-' + enc.id
-    });
-  } catch(e) {}
-}
 </script>
 
 
