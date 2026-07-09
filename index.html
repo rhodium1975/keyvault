@@ -8015,13 +8015,17 @@
     }
   })();
 
-  // ── LOGOTIPO DA EMPRESA ──
+  // ── LOGOTIPO DA EMPRESA (FIRESTORE) ──
+  // Guardado em condominios/{condominioId}/config/branding, campo "logo".
+  // localStorage continua sendo usado só como cache local (logo aparece
+  // instantaneamente ao abrir o app, antes do Firestore responder).
   (function() {
     const wrap    = document.getElementById('companyLogoWrap');
     const img     = document.getElementById('companyLogoImg');
     const ph      = document.getElementById('companyLogoPlaceholder');
     const removeBtn = document.getElementById('companyLogoRemove');
     const input   = document.getElementById('companyLogoInput');
+    let _unsubLogo = null;
 
     function aplicarLogo(dataUrl) {
       img.src = dataUrl;
@@ -8039,18 +8043,52 @@
       wrap.onclick = () => input.click();
     }
 
-    // Restaurar do embedded data ou localStorage
+    function _docLogo() {
+      const condominioId = window.KV_AUTH && KV_AUTH.getCondominioId ? KV_AUTH.getCondominioId() : null;
+      if (!condominioId) throw new Error('Nenhum condomínio ativo na sessão.');
+      return firebase.firestore()
+        .collection('condominios').doc(condominioId)
+        .collection('config').doc('branding');
+    }
+
+    // Restaurar do cache local imediatamente (tela não fica vazia por 1 frame)
     try {
-      const emb = _readEmbedded();
-      const saved = (emb && emb.companyLogo) || localStorage.getItem('kv_company_logo');
+      const saved = localStorage.getItem('kv_company_logo');
       if (saved) aplicarLogo(saved);
     } catch(e) {}
+
+    // Listener em tempo real: logo enviado em um dispositivo aparece
+    // automaticamente em todos os outros (inclusive PWA recém-instalado).
+    function _iniciarListenerLogo() {
+      if (_unsubLogo) return;
+      try {
+        _unsubLogo = _docLogo().onSnapshot(function(snap) {
+          const dados = snap.exists ? snap.data() : null;
+          if (dados && dados.logo) {
+            aplicarLogo(dados.logo);
+            try { localStorage.setItem('kv_company_logo', dados.logo); } catch(e) {}
+          } else {
+            limparLogo();
+            try { localStorage.removeItem('kv_company_logo'); } catch(e) {}
+          }
+        }, function(err) { console.warn('Erro ao sincronizar logo:', err.message); });
+      } catch(e) { console.warn('Erro ao iniciar listener de logo:', e.message); }
+    }
+    function _pararListenerLogo() {
+      if (_unsubLogo) { _unsubLogo(); _unsubLogo = null; }
+    }
+    document.addEventListener('kv-login',  _iniciarListenerLogo);
+    document.addEventListener('kv-logout', function() { _pararListenerLogo(); limparLogo(); try { localStorage.removeItem('kv_company_logo'); } catch(e) {} });
+    firebase.auth().onAuthStateChanged(function(user) {
+      if (user && window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) _iniciarListenerLogo();
+    });
+    if (window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) _iniciarListenerLogo();
 
     // ── LIMITES DO LOGO ──
     const LOGO_MAX_W   = 800;   // px largura máxima
     const LOGO_MAX_H   = 200;   // px altura máxima
     const LOGO_QUALITY = 0.75;  // qualidade JPEG
-    const LOGO_MAX_KB  = 200;   // tamanho máximo em KB após compressão
+    const LOGO_MAX_KB  = 200;   // tamanho máximo em KB após compressão (cabe folgado no limite de 1MB por doc do Firestore)
 
     function comprimirLogo(file, callback) {
       const reader = new FileReader();
@@ -8093,14 +8131,17 @@
       if (!file) return;
       this.value = '';
 
-      comprimirLogo(file, function(dataUrl, erro) {
+      comprimirLogo(file, async function(dataUrl, erro) {
         if (erro) {
           if (typeof mostrarNotif === 'function') mostrarNotif('⚠ ' + erro, 'red');
           return;
         }
-        aplicarLogo(dataUrl);
-        try { localStorage.setItem('kv_company_logo', dataUrl); } catch(e) {
-          if (typeof mostrarNotif === 'function') mostrarNotif('⚠ Erro ao salvar logo (armazenamento cheio?)', 'red');
+        aplicarLogo(dataUrl); // feedback imediato, antes do Firestore confirmar
+        try { localStorage.setItem('kv_company_logo', dataUrl); } catch(e) {}
+        try {
+          await _docLogo().set({ logo: dataUrl, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+        } catch(e) {
+          if (typeof mostrarNotif === 'function') mostrarNotif('⚠ Erro ao salvar logo: ' + e.message, 'red');
         }
       });
     });
@@ -8116,10 +8157,11 @@
         _logoHolding = true;
         wrap.style.transition = 'box-shadow 0.2s';
         wrap.style.boxShadow = '0 0 0 3px rgba(255,23,68,0.5)';
-        setTimeout(() => {
+        setTimeout(async () => {
           wrap.style.boxShadow = '';
           limparLogo();
           try { localStorage.removeItem('kv_company_logo'); } catch(e) {}
+          try { await _docLogo().delete(); } catch(e) {}
           if (typeof mostrarNotif === 'function') mostrarNotif('🗑 Logotipo removido', 'red');
         }, 200);
       }, 700);
@@ -8133,10 +8175,13 @@
       clearTimeout(_logoHoldTimer);
     });
 
-    window.removerLogoEmpresa = function(event) {
+    window.removerLogoEmpresa = async function(event) {
       if (event) event.stopPropagation();
       limparLogo();
       try { localStorage.removeItem('kv_company_logo'); } catch(e) {}
+      try { await _docLogo().delete(); } catch(e) {
+        if (typeof mostrarNotif === 'function') mostrarNotif('⚠ Erro ao remover logo: ' + e.message, 'red');
+      }
     };
   })();
 
