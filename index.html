@@ -5482,11 +5482,79 @@
     }
   }
 
-  // Salva log apenas em localStorage (dado local, não crítico)
+  // Salva log apenas em localStorage (cache local, instantâneo)
   function salvarEstado() {
     try { localStorage.setItem(STORAGE_KEY + '_log', JSON.stringify(log)); } catch(e) {}
     _agendarSalvarArquivo();
   }
+
+  // ── LOG DE ATIVIDADES (FIRESTORE) ──
+  // condominios/{id}/chavesLog/{autoId} — um documento por entrada, pra
+  // evitar que duas pessoas mexendo ao mesmo tempo sobrescrevam o histórico
+  // uma da outra (diferente de um único documento com o array inteiro).
+  function _colChavesLog() {
+    const condominioId = window.KV_AUTH && KV_AUTH.getCondominioId ? KV_AUTH.getCondominioId() : null;
+    if (!condominioId) throw new Error('Nenhum condomínio ativo na sessão.');
+    return firebase.firestore()
+      .collection('condominios').doc(condominioId)
+      .collection('chavesLog');
+  }
+
+  // Grava UMA entrada no Firestore, sem bloquear a interface (fire-and-forget).
+  function _adicionarLogFirestore(entry) {
+    try {
+      _colChavesLog().add({
+        tipo: entry.tipo,
+        txt: entry.txt,
+        hora: entry.hora,
+        ts: firebase.firestore.FieldValue.serverTimestamp(),
+      }).catch(err => console.warn('Erro ao salvar log no Firestore:', err.message));
+    } catch(e) { console.warn('Erro ao salvar log:', e.message); }
+  }
+
+  // Envolve a criação de uma entrada de log: grava no Firestore e devolve o
+  // mesmo objeto, pra poder ser usado dentro de log.push(...)/log.unshift(...)
+  // sem precisar reescrever a lógica local em cada um dos ~15 lugares que já
+  // existem espalhados pelo código.
+  function _logComFirestore(entry) {
+    _adicionarLogFirestore(entry);
+    return entry;
+  }
+
+  let _unsubChavesLog = null;
+  function _iniciarListenerChavesLog() {
+    if (_unsubChavesLog) return;
+    const condominioId = window.KV_AUTH && KV_AUTH.getCondominioId ? KV_AUTH.getCondominioId() : null;
+    if (!condominioId) return;
+    try {
+      _unsubChavesLog = _colChavesLog()
+        .orderBy('ts', 'desc')
+        .limit(300)
+        .onSnapshot(function(snap) {
+          // Reconstrói o array inteiro a cada sincronização — o Firestore
+          // devolve mais novo primeiro; o array local espera mais antigo
+          // primeiro (por isso o reverse()), igual já era o comportamento
+          // original com log.push().
+          const entradas = snap.docs.map(d => {
+            const dados = d.data();
+            return { tipo: dados.tipo, txt: dados.txt, hora: dados.hora };
+          });
+          entradas.reverse();
+          log = entradas;
+          try { localStorage.setItem(STORAGE_KEY + '_log', JSON.stringify(log)); } catch(e) {}
+          if (typeof renderLog === 'function') renderLog();
+        }, function(err) { console.warn('Erro ao sincronizar log de atividades:', err.message); });
+    } catch(e) { console.warn('Erro ao iniciar listener de log de atividades:', e.message); }
+  }
+  function _pararListenerChavesLog() {
+    if (_unsubChavesLog) { _unsubChavesLog(); _unsubChavesLog = null; }
+  }
+  document.addEventListener('kv-login',  _iniciarListenerChavesLog);
+  document.addEventListener('kv-logout', _pararListenerChavesLog);
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (user && window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) _iniciarListenerChavesLog();
+  });
+  if (window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) _iniciarListenerChavesLog();
 
   // Debounce para não reescrever o arquivo a cada keystroke
   let _salvarTimer = null;
@@ -5599,7 +5667,7 @@
         const prev = new Date(+a, +m-1, +d, +h, +mi);
         if (now > prev) {
           c.status = 'atrasada';
-          log.push({ tipo:'atr', txt:`${c.id} (${c.nome}) em atraso — ${c.resp}`, hora: dataHoraAtual() });
+          log.push(_logComFirestore({ tipo:'atr', txt:`${c.id} (${c.nome}) em atraso — ${c.resp}`, hora: dataHoraAtual() }));
         }
       }
     });
@@ -5631,33 +5699,88 @@
 
   let customCats = {};
   try {
-    // localStorage é a fonte mais confiável: é atualizado na hora a cada alteração.
-    // O bloco embutido no arquivo (kv-appdata) só é regravado no disco quando existe
-    // um _fileHandle ativo (arquivo aberto via "Abrir arquivo"); sem isso, ele fica
-    // desatualizado e não deve sobrescrever o que já foi salvo localmente.
+    // Cache local: mostra algo na tela instantaneamente, antes do Firestore responder.
     const lsRaw = localStorage.getItem('kv_custom_cats');
-    if (lsRaw !== null) {
-      customCats = JSON.parse(lsRaw);
-    } else {
-      const emb = _readEmbedded();
-      customCats = (emb && emb.customCats) ? emb.customCats : {};
-    }
+    if (lsRaw !== null) customCats = JSON.parse(lsRaw);
   } catch(e) {}
 
   // Categorias fixas que o usuário deletou (persiste entre sessões)
   let deletedFixedCats = new Set();
   try {
     const lsRaw = localStorage.getItem('kv_deleted_fixed_cats');
-    if (lsRaw !== null) {
-      deletedFixedCats = new Set(JSON.parse(lsRaw));
-    } else {
-      const emb = _readEmbedded();
-      deletedFixedCats = new Set((emb && emb.deletedFixedCats) ? emb.deletedFixedCats : []);
-    }
+    if (lsRaw !== null) deletedFixedCats = new Set(JSON.parse(lsRaw));
   } catch(e) {}
 
-  function salvarCustomCats() { try { localStorage.setItem('kv_custom_cats', JSON.stringify(customCats)); } catch(e) {} _agendarSalvarArquivo(); }
-  function salvarDeletedFixedCats() { try { localStorage.setItem('kv_deleted_fixed_cats', JSON.stringify([...deletedFixedCats])); } catch(e) {} _agendarSalvarArquivo(); }
+  // ── Sincronização com Firestore (condominios/{id}/config/chavesCategorias) ──
+  // Guarda customCats + deletedFixedCats + customTabs no mesmo documento,
+  // já que os três formam a mesma "configuração de categorização de chaves"
+  // e mudam juntos com pouca frequência.
+  let _unsubChavesConfig = null;
+
+  function _condominioIdChavesCfg() {
+    return window.KV_AUTH && KV_AUTH.getCondominioId ? KV_AUTH.getCondominioId() : null;
+  }
+
+  function _docChavesConfig() {
+    const condominioId = _condominioIdChavesCfg();
+    if (!condominioId) throw new Error('Nenhum condomínio ativo na sessão.');
+    return firebase.firestore()
+      .collection('condominios').doc(condominioId)
+      .collection('config').doc('chavesCategorias');
+  }
+
+  function _salvarChavesConfigFirestore() {
+    try {
+      _docChavesConfig().set({
+        customCats,
+        deletedFixedCats: [...deletedFixedCats],
+        customTabs,
+        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true }).catch(err => console.warn('Erro ao salvar categorias/abas no Firestore:', err.message));
+    } catch(e) { console.warn('Erro ao salvar categorias/abas:', e.message); }
+  }
+
+  function _iniciarListenerChavesConfig() {
+    if (_unsubChavesConfig) return;
+    const condominioId = _condominioIdChavesCfg();
+    if (!condominioId) return;
+    try {
+      _unsubChavesConfig = _docChavesConfig().onSnapshot(function(snap) {
+        const dados = snap.exists ? snap.data() : null;
+        if (dados) {
+          customCats = dados.customCats || {};
+          deletedFixedCats = new Set(dados.deletedFixedCats || []);
+          customTabs = dados.customTabs || [];
+          try { localStorage.setItem('kv_custom_cats', JSON.stringify(customCats)); } catch(e) {}
+          try { localStorage.setItem('kv_deleted_fixed_cats', JSON.stringify([...deletedFixedCats])); } catch(e) {}
+          try { localStorage.setItem('kv_custom_tabs', JSON.stringify(customTabs)); } catch(e) {}
+          if (typeof render === 'function') render();
+          if (typeof renderCustomTabs === 'function') renderCustomTabs();
+          if (typeof renderManageCatsList === 'function') renderManageCatsList();
+        }
+      }, function(err) { console.warn('Erro ao sincronizar categorias/abas de chaves:', err.message); });
+    } catch(e) { console.warn('Erro ao iniciar listener de categorias/abas de chaves:', e.message); }
+  }
+  function _pararListenerChavesConfig() {
+    if (_unsubChavesConfig) { _unsubChavesConfig(); _unsubChavesConfig = null; }
+  }
+  document.addEventListener('kv-login',  _iniciarListenerChavesConfig);
+  document.addEventListener('kv-logout', _pararListenerChavesConfig);
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (user && window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) _iniciarListenerChavesConfig();
+  });
+  if (window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) _iniciarListenerChavesConfig();
+
+  function salvarCustomCats() {
+    try { localStorage.setItem('kv_custom_cats', JSON.stringify(customCats)); } catch(e) {}
+    _agendarSalvarArquivo();
+    _salvarChavesConfigFirestore();
+  }
+  function salvarDeletedFixedCats() {
+    try { localStorage.setItem('kv_deleted_fixed_cats', JSON.stringify([...deletedFixedCats])); } catch(e) {}
+    _agendarSalvarArquivo();
+    _salvarChavesConfigFirestore();
+  }
 
   function allCats() {
     const fixed = Object.fromEntries(Object.entries(FIXED_CATS).filter(([k]) => !deletedFixedCats.has(k)));
@@ -5928,13 +6051,16 @@
   // ── ABAS CUSTOMIZADAS ──
   let customTabs = [];
   try {
-    const emb = _readEmbedded();
-    if (emb && emb.customTabs) customTabs = emb.customTabs;
-    else customTabs = JSON.parse(localStorage.getItem('kv_custom_tabs') || '[]');
+    // Cache local: mostra algo na tela instantaneamente, antes do Firestore responder.
+    customTabs = JSON.parse(localStorage.getItem('kv_custom_tabs') || '[]');
   } catch(e) {}
   // { id, nome, filtro, cat }
 
-  function salvarCustomTabs() { try { localStorage.setItem('kv_custom_tabs', JSON.stringify(customTabs)); } catch(e) {} _agendarSalvarArquivo(); }
+  function salvarCustomTabs() {
+    try { localStorage.setItem('kv_custom_tabs', JSON.stringify(customTabs)); } catch(e) {}
+    _agendarSalvarArquivo();
+    _salvarChavesConfigFirestore();
+  }
 
   function renderCustomTabs() {
     const row = document.getElementById('tabs');
@@ -6453,7 +6579,7 @@
     const catAntigaLabel = (allCats()[chaveAtual.cat] || {}).label || chaveAtual.cat;
     const catNovaLabel   = (allCats()[novacat] || {}).label || novacat;
     chaveAtual.cat = novacat;
-    log.push({ tipo:'add', txt:`Categoria de "${chaveAtual.nome}" (${chaveAtual.id}): ${catAntigaLabel} → ${catNovaLabel}`, hora: dataHoraAtual() });
+    log.push(_logComFirestore({ tipo:'add', txt:`Categoria de "${chaveAtual.nome}" (${chaveAtual.id}): ${catAntigaLabel} → ${catNovaLabel}`, hora: dataHoraAtual() }));
     salvarEstado();
     renderGrid();
     const box = document.getElementById('modalCatChips');
@@ -6740,7 +6866,7 @@
     chaveAtual.previsao    = hoje + ' ' + prev;
     chaveAtual.obs         = obs || null;
     chaveAtual.retirada    = null;
-    log.push({ tipo:'add', txt:`${chaveAtual.id} (${chaveAtual.nome}) reservada por ${respFinal}${unidade?' — Unid.'+unidade:''}`, hora: dataHoraAtual() });
+    log.push(_logComFirestore({ tipo:'add', txt:`${chaveAtual.id} (${chaveAtual.nome}) reservada por ${respFinal}${unidade?' — Unid.'+unidade:''}`, hora: dataHoraAtual() }));
     salvarEstado(); fecharModal(); render();
     _syncChaveFirestore(chaveAtual);
     showToastSimples(`🔖 Reserva registrada — ${chaveAtual.nome}`);
@@ -6758,7 +6884,7 @@
     chaveAtual.previsao    = null;
     chaveAtual.obs         = null;
     chaveAtual.retirada    = null;
-    log.push({ tipo:'dev', txt:`${chaveAtual.id} (${nome}) — reserva de ${resp} cancelada`, hora: dataHoraAtual() });
+    log.push(_logComFirestore({ tipo:'dev', txt:`${chaveAtual.id} (${nome}) — reserva de ${resp} cancelada`, hora: dataHoraAtual() }));
     salvarEstado(); fecharModal(); render();
     _syncChaveFirestore(chaveAtual);
     showToastSimples(`✕ Reserva cancelada — ${nome}`);
@@ -6772,7 +6898,7 @@
     chaveAtual.previsao = hoje + ' ' + prev;
     chaveAtual.reservadoEm = null;
     chaveAtual.obs      = null;
-    log.push({ tipo:'ret', txt:`${chaveAtual.id} (${chaveAtual.nome}) retirada por ${chaveAtual.resp} [reserva → saída]${chaveAtual.unidade?' — Unid.'+chaveAtual.unidade:''}`, hora: dataHoraAtual() });
+    log.push(_logComFirestore({ tipo:'ret', txt:`${chaveAtual.id} (${chaveAtual.nome}) retirada por ${chaveAtual.resp} [reserva → saída]${chaveAtual.unidade?' — Unid.'+chaveAtual.unidade:''}`, hora: dataHoraAtual() }));
     salvarEstado(); fecharModal(); render();
     _syncChaveFirestore(chaveAtual);
   }
@@ -6780,7 +6906,7 @@
   function confirmarCancelRetirada() {
     const nome = chaveAtual.nome;
     const resp = chaveAtual.resp;
-    log.push({ tipo:'dev', txt:`${chaveAtual.id} (${nome}) — retirada de ${resp} cancelada (estorno)`, hora: dataHoraAtual() });
+    log.push(_logComFirestore({ tipo:'dev', txt:`${chaveAtual.id} (${nome}) — retirada de ${resp} cancelada (estorno)`, hora: dataHoraAtual() }));
     chaveAtual.status   = 'disponivel';
     chaveAtual.resp     = null;
     chaveAtual.tipo     = null;
@@ -6828,7 +6954,7 @@
     const logExtra = isLivre
       ? ` [⚡ Livre]${obs ? ' — ' + obs : ''}`
       : ` [${tipoAtual}]${unidade ? ' — Unid.' + unidade : ''}`;
-    log.push({ tipo:'ret', txt:`${chaveAtual.id} (${chaveAtual.nome}) retirada por ${respFinal}${logExtra}`, hora: dataHoraAtual() });
+    log.push(_logComFirestore({ tipo:'ret', txt:`${chaveAtual.id} (${chaveAtual.nome}) retirada por ${respFinal}${logExtra}`, hora: dataHoraAtual() }));
     salvarEstado(); fecharModal(); render();
     _syncChaveFirestore(chaveAtual);
   }
@@ -6837,7 +6963,7 @@
     const obs      = document.getElementById('f-obs-dev') ? document.getElementById('f-obs-dev').value.trim() : '';
     const devResp  = document.getElementById('f-dev-resp') ? document.getElementById('f-dev-resp').value.trim() : '';
     const quemDev  = devResp || chaveAtual.resp;
-    log.push({ tipo:'dev', txt:`${chaveAtual.id} (${chaveAtual.nome}) devolvida por ${quemDev}${chaveAtual.tipo==='livre'?' [⚡ Livre]':''}${obs?' — '+obs:''}`, hora: dataHoraAtual() });
+    log.push(_logComFirestore({ tipo:'dev', txt:`${chaveAtual.id} (${chaveAtual.nome}) devolvida por ${quemDev}${chaveAtual.tipo==='livre'?' [⚡ Livre]':''}${obs?' — '+obs:''}`, hora: dataHoraAtual() }));
     chaveAtual.status   = 'disponivel';
     chaveAtual.resp     = null;
     chaveAtual.tipo     = null;
@@ -6861,7 +6987,7 @@
     try {
       await salvarChaveFirestore(novaChave);
       chaves.push(novaChave);
-      log.push({ tipo:'add', txt:`Chave ${id} (${nome}) cadastrada — ${CAT_LABELS[catNova]}`, hora: dataHoraAtual() });
+      log.push(_logComFirestore({ tipo:'add', txt:`Chave ${id} (${nome}) cadastrada — ${CAT_LABELS[catNova]}`, hora: dataHoraAtual() }));
       salvarEstado();
       fecharModal();
       render();
@@ -6902,7 +7028,7 @@
     if (!ch) { fecharEditId(); return; }
     const idAntigo = ch.id;
     ch.id = novoId;
-    log.push({ tipo:'add', txt:`ID da chave "${ch.nome}" alterado: ${idAntigo} → ${novoId}`, hora: dataHoraAtual() });
+    log.push(_logComFirestore({ tipo:'add', txt:`ID da chave "${ch.nome}" alterado: ${idAntigo} → ${novoId}`, hora: dataHoraAtual() }));
     salvarEstado();
     fecharEditId();
     render();
@@ -6967,7 +7093,7 @@
     ch.aliases = novosAliases;
     let logTxt = `Nome da chave ${ch.id} alterado: "${nomeAntigo}" → "${novoNome}"`;
     if (aliasesNovos !== aliasesAntigos) logTxt += ` | Apelidos: [${aliasesNovos || 'nenhum'}]`;
-    log.push({ tipo:'add', txt: logTxt, hora: dataHoraAtual() });
+    log.push(_logComFirestore({ tipo:'add', txt: logTxt, hora: dataHoraAtual() }));
     salvarEstado();
     fecharEditNome();
     render();
@@ -7037,7 +7163,7 @@
         const catAntigaLabel = (allCats()[ch.cat] || {}).label || ch.cat;
         const catNovaLabel   = (allCats()[novacat] || {}).label || novacat;
         ch.cat = novacat;
-        log.push({ tipo:'add', txt:`Categoria de "${ch.nome}" (${ch.id}): ${catAntigaLabel} → ${catNovaLabel}`, hora: dataHoraAtual() });
+        log.push(_logComFirestore({ tipo:'add', txt:`Categoria de "${ch.nome}" (${ch.id}): ${catAntigaLabel} → ${catNovaLabel}`, hora: dataHoraAtual() }));
         salvarEstado();
         pop.remove(); _catPopover = null;
         render();
@@ -7089,7 +7215,7 @@
       return;
     }
     chaves = chaves.filter(c => c.id !== delChaveId);
-    log.push({ tipo:'del', txt:`Chave ${ch.id} (${ch.nome}) excluída do claviculário`, hora: dataHoraAtual() });
+    log.push(_logComFirestore({ tipo:'del', txt:`Chave ${ch.id} (${ch.nome}) excluída do claviculário`, hora: dataHoraAtual() }));
     salvarEstado();
     fecharDel();
     render();
@@ -9395,7 +9521,7 @@
         'enc-ret':      `✅ Retirada por ${extra || '?'} — Apto ${enc.apto}${desc}`,
         'enc-del':      `🗑 Removida — Apto ${enc.apto}${desc}`,
       }[tipo] || tipo;
-      log.unshift({ tipo, txt, hora });
+      log.unshift(_logComFirestore({ tipo, txt, hora }));
       salvarEstado();
       renderLog();
     }
@@ -10827,7 +10953,7 @@ function _tentarReservarAreaParaVisita(chaveId, dataAgendadaDate, moradorNome, a
   chave.retirada    = null;
 
   try {
-    log.push({ tipo:'add', txt:`${chave.id} (${chave.nome}) reservada por ${moradorNome} — Unid.${apto || ''} [via agendamento de visita]`, hora: dataHoraAtual() });
+    log.push(_logComFirestore({ tipo:'add', txt:`${chave.id} (${chave.nome}) reservada por ${moradorNome} — Unid.${apto || ''} [via agendamento de visita]`, hora: dataHoraAtual() }));
   } catch (e) {}
   try { salvarEstado(); } catch (e) {}
   try { render(); } catch (e) {}
