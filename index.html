@@ -5112,12 +5112,37 @@
             </div>
             <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${m.email}</div>
           </div>
+          <button type="button" onclick="adminExcluirMorador('${m.id}', '${(m.nome || '').replace(/'/g, "\\'")}', ${m.uid ? `'${m.uid}'` : 'null'})" title="Excluir morador" style="background:rgba(255,85,119,0.1);border:1px solid rgba(255,85,119,0.4);color:#ff5577;border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;flex-shrink:0;align-self:center;">
+            🗑
+          </button>
         </div>`).join('');
     }).catch(() => {
       const el = document.getElementById('listaMoradoresFirestore');
       if (el) el.textContent = 'Erro ao carregar moradores.';
     });
   }
+
+  window.adminExcluirMorador = async function(id, nome, uid) {
+    const confirmado = confirm(`Excluir "${nome}" do condomínio?\n\nIsso remove o cadastro e revoga o acesso ao app. Essa ação não pode ser desfeita.`);
+    if (!confirmado) return;
+    try {
+      await kvMoradores.excluirMorador(id);
+      // Se o morador já tinha ativado a conta (uid preenchido), também apaga
+      // o documento usuarios/{uid} — sem isso, o login continuaria
+      // funcionando mesmo com o cadastro de morador já excluído.
+      if (uid) {
+        try {
+          await firebase.firestore().collection('usuarios').doc(uid).delete();
+        } catch(e) {
+          console.warn('Aviso: não foi possível revogar o acesso completo (usuarios/uid):', e.message);
+        }
+      }
+      renderGerenciarUsuarios();
+      if (typeof mostrarNotif === 'function') mostrarNotif('🗑 Morador excluído e acesso revogado.', 'red');
+    } catch(e) {
+      alert('Erro ao excluir: ' + e.message);
+    }
+  };
 
   window.toggleNewUserRole = function(role) {
     window._newUserRole = role;
@@ -10340,6 +10365,10 @@ const kvMoradores = (() => {
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   }
 
+  async function excluirMorador(id) {
+    await colMoradores().doc(id).delete();
+  }
+
   async function primeiroAcesso(codigoConvite, senha) {
     const snap = await colMoradoresTodosCondominios()
       .where('codigoConvite', '==', codigoConvite.toUpperCase().trim())
@@ -10401,7 +10430,7 @@ const kvMoradores = (() => {
     };
   }
 
-  return { cadastrarMorador, listarMoradores, primeiroAcesso, loginMorador, colMoradores };
+  return { cadastrarMorador, listarMoradores, excluirMorador, primeiroAcesso, loginMorador, colMoradores };
 })();
 
 // ══════════════════════════════════════════════════════════════════
