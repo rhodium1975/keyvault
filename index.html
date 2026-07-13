@@ -2995,10 +2995,6 @@
     <div class="header-time">
       <div id="clock">19:52:10</div>
       <div class="header-date" id="dateLbl">TER., 02 DE JUN.</div>
-      <button onclick="salvarArquivoManual()" title="Salvar arquivo com todos os dados" style="margin-top: 5px; background: transparent; border: 1px solid rgba(0, 229, 255, 0.25); color: rgba(0, 229, 255, 0.5); border-radius: 6px; padding: 3px 8px; font-family: var(--font-display); font-size: 8px; letter-spacing: 1px; cursor: pointer; transition: 0.2s; align-items: center; gap: 4px;" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='rgba(0,229,255,0.25)';this.style.color='rgba(0,229,255,0.5)'">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-        SALVAR
-      </button>
       <div class="session-badge admin" id="sessionBadge" onclick="abrirMenuSessao()" title="Sessão ativa — clique para opções" style="display: inline-flex;">
         <span id="sessionIcon">🔐</span>
         <span id="sessionName">Administrador</span>
@@ -5119,10 +5115,6 @@
     const encBtnReg = document.getElementById('encBtnRegistrar');
     if (encBtnReg) encBtnReg.style.display = isMorador ? 'none' : '';
 
-    // Salvar arquivo — só admin
-    const saveBtn = document.querySelector('button[onclick="salvarArquivoManual()"]');
-    if (saveBtn) saveBtn.style.display = isAdmin ? '' : 'none';
-
     // Logo upload — só admin
     const logoWrap = document.getElementById('companyLogoWrap');
     if (logoWrap && !isAdmin) {
@@ -5518,23 +5510,6 @@
       // Não pedimos permissão aqui para não incomodar; o usuário pode usar o botão "💾 Salvar arquivo"
     } catch(e) {}
   }
-
-  // Abre o arquivo e salva imediatamente (chamado pelo botão manual)
-  window.salvarArquivoManual = async function() {
-    try {
-      if (!window.showSaveFilePicker) {
-        _mostrarToastSalvo('⚠ Use o botão ⬇ Exportar para salvar uma cópia.', 'amber');
-        return;
-      }
-      _fileHandle = await window.showSaveFilePicker({
-        suggestedName: 'keyvault-voice-melhorado.html',
-        types: [{ description: 'HTML', accept: { 'text/html': ['.html'] } }],
-      });
-      await _salvarNoArquivo();
-    } catch(e) {
-      if (e.name !== 'AbortError') _mostrarToastSalvo('Erro ao salvar arquivo.', 'red');
-    }
-  };
 
   function _mostrarIndicadorSalvo() {
     _mostrarToastSalvo('💾 Arquivo salvo com sucesso!', 'green');
