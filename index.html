@@ -3231,6 +3231,92 @@
     </div>
   </div>
 
+  <!-- SETOR DE ENQUETES -->
+  <div class="prest-sector" id="enqSector">
+  <div class="prest-sector-label" id="enqSectorLabel">📊 <span>ENQUETES</span></div>
+  <div class="prest-section" id="enqSection">
+    <div class="prest-header" onclick="kvEnquetes.toggleList(event)" style="cursor:pointer;user-select:none;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <svg class="prest-toggle-arrow" id="enqToggleArrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        <span class="prest-count-badge" id="enqCountBadge" style="background: rgba(0, 229, 255, 0.06);">0</span>
+        <span class="prest-title">📊 Enquetes</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation()">
+        <button class="prest-add-btn" id="enqBtnCriar" onclick="kvEnquetes.abrirModalCriar()" style="display:none;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Criar
+        </button>
+      </div>
+    </div>
+    <div class="prest-list-wrap" id="enqListWrap" style="display:none;">
+      <div id="enqList"></div>
+    </div>
+    <!-- HISTÓRICO DE ENQUETES ENCERRADAS -->
+    <div class="prest-historico-toggle" id="enqHistoricoToggle" onclick="kvEnquetes.toggleHistorico(event)" style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;margin-top:2px;cursor:pointer;user-select:none;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <svg class="prest-toggle-arrow" id="enqHistoricoArrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        <span style="font-family:var(--font-display);font-size:9.5px;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;">🗄 Enquetes encerradas</span>
+        <span class="prest-count-badge" id="enqHistoricoBadge" style="background:rgba(158,170,181,0.1);">0</span>
+      </div>
+    </div>
+    <div class="prest-list-wrap" id="enqHistoricoWrap" style="display:none;">
+      <div id="enqHistoricoList"></div>
+    </div>
+  </div>
+  </div><!-- /enq-sector -->
+
+  <!-- MODAL CRIAR ENQUETE -->
+  <div class="prest-overlay" id="enqCriarOverlay">
+    <div class="prest-modal">
+      <div class="prest-modal-bar"></div>
+      <div class="prest-modal-handle"></div>
+      <div class="prest-modal-head">
+        <div class="prest-modal-title">📊 Nova Enquete</div>
+      </div>
+      <div class="prest-modal-body">
+        <label class="form-label">Título <span style="color:var(--red)">*</span></label>
+        <input class="form-input" id="enqTitulo" placeholder="Ex.: Trocar a grama do playground?" maxlength="120">
+        <label class="form-label">Descrição (opcional)</label>
+        <input class="form-input" id="enqDescricao" placeholder="Contexto, orçamento, detalhes..." maxlength="300">
+        <label class="form-label">Opções de resposta <span style="color:var(--red)">*</span></label>
+        <div id="enqOpcoesWrap">
+          <input class="form-input enq-opcao-input" placeholder="Opção 1 (ex.: Sim)" maxlength="60">
+          <input class="form-input enq-opcao-input" placeholder="Opção 2 (ex.: Não)" maxlength="60">
+        </div>
+        <button type="button" class="prest-add-btn" onclick="kvEnquetes.addOpcaoInput()" style="margin:2px 0 14px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Adicionar opção
+        </button>
+        <label class="form-label">Data limite pra votar <span style="color:var(--red)">*</span></label>
+        <input class="form-input" id="enqDataLimite" type="date">
+        <div class="enc-faltante-toggle" id="enqAnonimaToggle" onclick="kvEnquetes.toggleAnonima()" style="margin-top:14px;">
+          <div class="enc-faltante-label">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            Votação anônima (esconde quem votou em quê)
+          </div>
+          <div class="enc-faltante-switch"></div>
+        </div>
+      </div>
+      <div class="prest-modal-footer">
+        <button class="prest-btn-cancel" onclick="kvEnquetes.fecharModalCriar()">Cancelar</button>
+        <button class="prest-btn-confirm" id="enqBtnPublicar" onclick="kvEnquetes.salvarEnquete()">✓ Publicar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DETALHE / VOTAR / RESULTADO ENQUETE -->
+  <div class="prest-overlay" id="enqDetalheOverlay">
+    <div class="prest-modal">
+      <div class="prest-modal-bar"></div>
+      <div class="prest-modal-handle"></div>
+      <div class="prest-modal-head">
+        <div class="prest-modal-title" id="enqDetalheTitle">📊 Enquete</div>
+      </div>
+      <div class="prest-modal-body" id="enqDetalheBody"></div>
+      <div class="prest-modal-footer" id="enqDetalheFooter"></div>
+    </div>
+  </div>
+
   <!-- SETOR DE VISITANTES -->
   <div class="enc-sector" id="visitSector">
   <div class="enc-sector-label">👥 <span>VISITANTES</span></div>
@@ -10011,6 +10097,360 @@ const kvPrest = (() => {
   document.addEventListener('DOMContentLoaded', init);
 
   return { toggleList, setFiltro, abrirModal, abrirModalMorador, fecharModal, selTipo, salvar, solicitar, abrirDetalhe, fecharDetalhe, mudarStatus, excluir, toggleCardAcoes, toggleHistorico, excluirDoHistorico };
+})();
+</script>
+
+<script>
+// ── MÓDULO ENQUETES (FIRESTORE) ──
+// condominios/{id}/enquetes/{enqueteId} — criada só pela equipe.
+// condominios/{id}/enquetes/{enqueteId}/votos/{uid} — 1 documento por
+// pessoa (o ID do documento É o uid dela), o que garante nativamente
+// "1 voto por pessoa": tentar votar de novo é um create em cima de um
+// documento que já existe, e o Firestore recusa isso sozinho.
+const kvEnquetes = (() => {
+  let enquetes = [];
+  let listAberta = false;
+  let historicoAberto = false;
+  let opcoesCount = 2;
+  let anonimaAtiva = false;
+  let enqueteAtualId = null;
+  let _unsubEnquetes = null;
+  let _arquivandoIds = new Set();
+
+  function _condominioId() {
+    return window.KV_AUTH && KV_AUTH.getCondominioId ? KV_AUTH.getCondominioId() : null;
+  }
+  function _isEquipe() {
+    const role = window.KV_AUTH ? KV_AUTH.getRole() : null;
+    return role === 'sindico' || role === 'user';
+  }
+  function _colEnquetes() {
+    const condominioId = _condominioId();
+    if (!condominioId) throw new Error('Nenhum condomínio ativo na sessão.');
+    return firebase.firestore().collection('condominios').doc(condominioId).collection('enquetes');
+  }
+  function _colVotos(enqueteId) {
+    return _colEnquetes().doc(enqueteId).collection('votos');
+  }
+  function hoje() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  // ── Sincronização em tempo real ──
+  function _iniciarListener() {
+    if (_unsubEnquetes) return;
+    const condominioId = _condominioId();
+    if (!condominioId) return;
+    try {
+      _unsubEnquetes = _colEnquetes().orderBy('criadoEmTs', 'desc').onSnapshot(function(snap) {
+        enquetes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        render();
+        renderHistorico();
+        atualizarBadge();
+        _arquivarVencidas();
+      }, function(err) { console.warn('Erro ao sincronizar enquetes:', err.message); });
+    } catch(e) { console.warn('Erro ao iniciar listener de enquetes:', e.message); }
+  }
+  function _pararListener() {
+    if (_unsubEnquetes) { _unsubEnquetes(); _unsubEnquetes = null; }
+  }
+
+  // Enquetes cuja data limite já passou viram "encerrada" sozinhas, na
+  // próxima vez que a equipe tiver o app aberto (mesmo princípio dos
+  // outros módulos: sem Cloud Functions, sem custo).
+  async function _arquivarVencidas() {
+    if (!_isEquipe()) return;
+    const vencidas = enquetes.filter(e => e.status === 'aberta' && e.dataLimite && e.dataLimite < hoje() && !_arquivandoIds.has(e.id));
+    for (const e of vencidas) {
+      _arquivandoIds.add(e.id);
+      try { await _colEnquetes().doc(e.id).set({ status: 'encerrada' }, { merge: true }); }
+      catch(err) { console.warn('Erro ao encerrar enquete vencida:', err.message); }
+      finally { _arquivandoIds.delete(e.id); }
+    }
+  }
+
+  document.addEventListener('kv-login',  function() { _iniciarListener(); atualizarBadge(); });
+  document.addEventListener('kv-logout', function() { _pararListener(); enquetes = []; render(); renderHistorico(); atualizarBadge(); });
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (user && window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) _iniciarListener();
+  });
+  if (window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) _iniciarListener();
+
+  function atualizarBadge() {
+    const badge = document.getElementById('enqCountBadge');
+    const abertas = enquetes.filter(e => e.status === 'aberta');
+    if (badge) badge.textContent = abertas.length;
+    const btnCriar = document.getElementById('enqBtnCriar');
+    if (btnCriar) btnCriar.style.display = _isEquipe() ? 'flex' : 'none';
+  }
+
+  function toggleList(event) {
+    if (event) event.stopPropagation();
+    const wrap = document.getElementById('enqListWrap');
+    const arrow = document.getElementById('enqToggleArrow');
+    listAberta = wrap.style.display === 'none';
+    wrap.style.display = listAberta ? 'block' : 'none';
+    if (arrow) arrow.classList.toggle('open', listAberta);
+  }
+
+  function toggleHistorico(event) {
+    if (event) event.stopPropagation();
+    const wrap = document.getElementById('enqHistoricoWrap');
+    const arrow = document.getElementById('enqHistoricoArrow');
+    historicoAberto = wrap.style.display === 'none';
+    wrap.style.display = historicoAberto ? 'block' : 'none';
+    if (arrow) arrow.classList.toggle('open', historicoAberto);
+  }
+
+  function render() {
+    const el = document.getElementById('enqList');
+    if (!el) return;
+    const abertas = enquetes.filter(e => e.status === 'aberta');
+    if (!abertas.length) {
+      el.innerHTML = `<div class="empty" style="padding:16px 0;font-size:12px;">Nenhuma enquete aberta no momento.</div>`;
+      return;
+    }
+    el.innerHTML = abertas.map(e => {
+      const prazo = e.dataLimite ? new Date(e.dataLimite + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+      return `
+      <div class="prest-card" onclick="kvEnquetes.abrirDetalhe('${e.id}')" style="cursor:pointer;">
+        <div class="prest-card-top">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;">📊 ${e.titulo}</div>
+            ${e.descricao ? `<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:4px;">${e.descricao}</div>` : ''}
+            <div class="prest-info-row"><span>🗓 Até ${prazo}</span>${e.anonima ? ' <span>🕶 Anônima</span>' : ''}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderHistorico() {
+    const el = document.getElementById('enqHistoricoList');
+    const badge = document.getElementById('enqHistoricoBadge');
+    if (!el) return;
+    const encerradas = enquetes.filter(e => e.status === 'encerrada');
+    if (badge) badge.textContent = encerradas.length;
+    if (!encerradas.length) {
+      el.innerHTML = `<div class="empty" style="padding:16px 0;font-size:12px;">Nenhuma enquete encerrada ainda.</div>`;
+      return;
+    }
+    el.innerHTML = encerradas.map(e => {
+      const prazo = e.dataLimite ? new Date(e.dataLimite + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+      return `
+      <div class="prest-card" onclick="kvEnquetes.abrirDetalhe('${e.id}')" style="cursor:pointer;opacity:0.8;">
+        <div class="prest-card-top">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;">📊 ${e.titulo}</div>
+            <div class="prest-info-row"><span>🏁 Encerrada — prazo era ${prazo}</span></div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── CRIAR ENQUETE ──
+  function abrirModalCriar() {
+    if (!_isEquipe()) return;
+    document.getElementById('enqTitulo').value = '';
+    document.getElementById('enqDescricao').value = '';
+    document.getElementById('enqDataLimite').value = '';
+    document.getElementById('enqOpcoesWrap').innerHTML = `
+      <input class="form-input enq-opcao-input" placeholder="Opção 1 (ex.: Sim)" maxlength="60">
+      <input class="form-input enq-opcao-input" placeholder="Opção 2 (ex.: Não)" maxlength="60">`;
+    opcoesCount = 2;
+    anonimaAtiva = false;
+    document.getElementById('enqAnonimaToggle').classList.remove('ativo');
+    document.getElementById('enqCriarOverlay').classList.add('open');
+  }
+  function fecharModalCriar() {
+    document.getElementById('enqCriarOverlay').classList.remove('open');
+  }
+  function addOpcaoInput() {
+    if (opcoesCount >= 8) return;
+    opcoesCount++;
+    const wrap = document.getElementById('enqOpcoesWrap');
+    const input = document.createElement('input');
+    input.className = 'form-input enq-opcao-input';
+    input.placeholder = `Opção ${opcoesCount}`;
+    input.maxLength = 60;
+    wrap.appendChild(input);
+  }
+  function toggleAnonima() {
+    anonimaAtiva = !anonimaAtiva;
+    document.getElementById('enqAnonimaToggle').classList.toggle('ativo', anonimaAtiva);
+  }
+
+  async function salvarEnquete() {
+    const titulo = document.getElementById('enqTitulo').value.trim();
+    const descricao = document.getElementById('enqDescricao').value.trim();
+    const dataLimite = document.getElementById('enqDataLimite').value;
+    const opcoes = Array.from(document.querySelectorAll('.enq-opcao-input'))
+      .map(i => i.value.trim()).filter(Boolean);
+
+    if (!titulo) { highlight('enqTitulo'); return; }
+    if (!dataLimite) { highlight('enqDataLimite'); return; }
+    if (opcoes.length < 2) { mostrarNotif('⚠ Adicione pelo menos 2 opções.', 'grey'); return; }
+    if (new Set(opcoes.map(o => o.toLowerCase())).size !== opcoes.length) {
+      mostrarNotif('⚠ As opções não podem se repetir.', 'grey'); return;
+    }
+
+    const btn = document.getElementById('enqBtnPublicar');
+    const txtOriginal = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Publicando...';
+    try {
+      await _colEnquetes().add({
+        titulo, descricao, opcoes, dataLimite,
+        anonima: anonimaAtiva,
+        status: 'aberta',
+        criadoPorNome: (window.KV_AUTH && KV_AUTH.getDisplayName()) || 'Equipe',
+        criadoEmTs: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      fecharModalCriar();
+      if (!listAberta) toggleList(null);
+      mostrarNotif('✅ Enquete publicada!');
+    } catch(e) {
+      mostrarNotif('⚠ Erro ao publicar: ' + e.message, 'grey');
+    } finally {
+      btn.disabled = false; btn.textContent = txtOriginal;
+    }
+  }
+
+  function highlight(id) {
+    const el = document.getElementById(id);
+    el.focus();
+    el.style.borderColor = 'var(--red)';
+    setTimeout(() => el.style.borderColor = '', 1500);
+  }
+
+  // ── DETALHE / VOTAR / RESULTADO ──
+  async function abrirDetalhe(id) {
+    const e = enquetes.find(x => x.id === id);
+    if (!e) return;
+    enqueteAtualId = id;
+    document.getElementById('enqDetalheTitle').textContent = '📊 ' + e.titulo;
+    const body = document.getElementById('enqDetalheBody');
+    const footer = document.getElementById('enqDetalheFooter');
+    body.innerHTML = `<div style="text-align:center;padding:20px 0;color:var(--text-dim);font-size:12px;">Carregando...</div>`;
+    footer.innerHTML = '';
+    document.getElementById('enqDetalheOverlay').classList.add('open');
+
+    const uid = firebase.auth().currentUser ? firebase.auth().currentUser.uid : null;
+    let votos = [];
+    let meuVoto = null;
+    try {
+      const snap = await _colVotos(id).get();
+      votos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      meuVoto = votos.find(v => v.id === uid) || null;
+    } catch(err) {
+      body.innerHTML = `<div style="padding:16px 0;color:var(--red);font-size:12px;">Erro ao carregar votos: ${err.message}</div>`;
+      return;
+    }
+
+    const total = votos.length;
+    const contagem = {};
+    e.opcoes.forEach(o => contagem[o] = 0);
+    votos.forEach(v => { if (contagem[v.opcao] !== undefined) contagem[v.opcao]++; });
+
+    const prazo = e.dataLimite ? new Date(e.dataLimite + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    const encerrada = e.status === 'encerrada';
+    const mostrarResultado = encerrada || !!meuVoto || _isEquipe();
+
+    let html = '';
+    if (e.descricao) html += `<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:10px;">${e.descricao}</div>`;
+    html += `<div class="prest-info-row" style="margin-bottom:12px;"><span>🗓 ${encerrada ? 'Encerrada — prazo era' : 'Até'} ${prazo}</span> <span>👥 ${total} voto${total===1?'':'s'}</span>${e.anonima ? ' <span>🕶 Anônima</span>' : ''}</div>`;
+
+    if (mostrarResultado) {
+      html += e.opcoes.map(o => {
+        const n = contagem[o] || 0;
+        const pct = total > 0 ? Math.round((n / total) * 100) : 0;
+        const souEu = meuVoto && meuVoto.opcao === o;
+        return `
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+            <span style="color:${souEu?'var(--cyan)':'var(--text)'};font-weight:${souEu?'700':'500'};">${o}${souEu ? ' ✓ (seu voto)' : ''}</span>
+            <span style="color:var(--text-dim);">${n} · ${pct}%</span>
+          </div>
+          <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${souEu?'var(--cyan)':'rgba(0,229,255,0.35)'};transition:width .3s;"></div>
+          </div>
+        </div>`;
+      }).join('');
+
+      if (!e.anonima && (_isEquipe() || meuVoto)) {
+        const nomes = votos.filter(v => v.nome).map(v => `${v.nome}${v.apto ? ' (Apto '+v.apto+')' : ''}`);
+        if (nomes.length) {
+          html += `<div style="margin-top:14px;font-size:10.5px;color:var(--text-dim);">
+            <div style="font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">Quem já votou:</div>
+            ${nomes.join(' · ')}
+          </div>`;
+        }
+      }
+    } else {
+      html += `<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:10px;">Vote pra ver o resultado parcial.</div>`;
+      html += e.opcoes.map(o => `
+        <button class="prest-btn-confirm" style="width:100%;margin-bottom:8px;" onclick="kvEnquetes.votar('${e.id}','${o.replace(/'/g,"\\'")}')">${o}</button>
+      `).join('');
+    }
+    body.innerHTML = html;
+
+    let footerHtml = `<button class="prest-btn-cancel" onclick="kvEnquetes.fecharDetalhe()" style="flex:1;">Fechar</button>`;
+    if (_isEquipe() && !encerrada) {
+      footerHtml += `<button class="prest-btn-confirm" style="flex:1;" onclick="kvEnquetes.encerrarAgora('${e.id}')">🏁 Encerrar agora</button>`;
+    }
+    footer.innerHTML = footerHtml;
+  }
+
+  function fecharDetalhe() {
+    document.getElementById('enqDetalheOverlay').classList.remove('open');
+    enqueteAtualId = null;
+  }
+
+  async function votar(enqueteId, opcao) {
+    const user = firebase.auth().currentUser;
+    if (!user) { mostrarNotif('⚠ Sessão expirada. Faça login de novo.', 'grey'); return; }
+    const e = enquetes.find(x => x.id === enqueteId);
+    if (!e) return;
+    const anonima = !!e.anonima;
+    const dados = { opcao, ts: firebase.firestore.FieldValue.serverTimestamp() };
+    if (!anonima) {
+      dados.nome = (window.KV_AUTH && KV_AUTH.getDisplayName()) || '';
+      try {
+        const sess = JSON.parse(localStorage.getItem('kv_auth_session_v1') || '{}');
+        if (sess.apto) dados.apto = sess.apto;
+      } catch(err) {}
+    }
+    try {
+      await _colVotos(enqueteId).doc(user.uid).set(dados); // create-only pelas regras — não deixa votar 2x
+      mostrarNotif('✅ Voto registrado!');
+      abrirDetalhe(enqueteId); // recarrega já mostrando o resultado
+    } catch(err) {
+      if (err.code === 'permission-denied') {
+        mostrarNotif('⚠ Você já votou nessa enquete.', 'grey');
+        abrirDetalhe(enqueteId);
+      } else {
+        mostrarNotif('⚠ Erro ao votar: ' + err.message, 'grey');
+      }
+    }
+  }
+
+  async function encerrarAgora(id) {
+    if (!_isEquipe()) return;
+    if (!confirm('Encerrar essa enquete agora? Ninguém mais poderá votar.')) return;
+    try {
+      await _colEnquetes().doc(id).set({ status: 'encerrada' }, { merge: true });
+      fecharDetalhe();
+      mostrarNotif('🏁 Enquete encerrada.');
+    } catch(e) {
+      mostrarNotif('⚠ Erro ao encerrar: ' + e.message, 'grey');
+    }
+  }
+
+  return {
+    toggleList, toggleHistorico, abrirModalCriar, fecharModalCriar, addOpcaoInput,
+    toggleAnonima, salvarEnquete, abrirDetalhe, fecharDetalhe, votar, encerrarAgora,
+  };
 })();
 </script>
 
