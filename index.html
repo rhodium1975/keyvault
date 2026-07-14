@@ -2960,6 +2960,21 @@
     }
   }
 
+  /* ── ONBOARDING (tutorial do síndico) ── */
+  .onboarding-dim { position:fixed; inset:0; background:rgba(5,8,15,0.82); z-index:99990; display:none; animation:fadeOverlay 0.25s ease; }
+  .onboarding-dim.open { display:block; }
+  .onboarding-spot { position:relative !important; z-index:99991 !important; box-shadow:0 0 0 4px var(--cyan), 0 0 26px 4px rgba(0,229,255,0.55) !important; border-radius:10px; }
+  .onboarding-card { position:fixed; z-index:99992; background:var(--bg2); border:1px solid var(--cyan); border-radius:14px; padding:16px 18px; max-width:270px; box-shadow:0 8px 30px rgba(0,0,0,0.5); display:none; }
+  .onboarding-card.open { display:block; animation:fadeOverlay 0.25s ease; }
+  .onboarding-title { font-family:var(--font-display); font-size:13px; letter-spacing:0.5px; color:var(--cyan); margin-bottom:7px; font-weight:700; }
+  .onboarding-text { font-size:12.5px; color:var(--text); line-height:1.5; margin-bottom:14px; }
+  .onboarding-footer { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .onboarding-dots { display:flex; gap:5px; }
+  .onboarding-dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.2); transition:.2s; }
+  .onboarding-dot.active { background:var(--cyan); width:16px; border-radius:3px; }
+  .onboarding-btn-skip { background:none; border:none; color:var(--text-dim); font-size:11px; cursor:pointer; text-decoration:underline; padding:4px; }
+  .onboarding-btn-next { background:var(--cyan); color:#000; border:none; border-radius:8px; padding:7px 16px; font-family:var(--font-display); font-size:11px; letter-spacing:0.5px; cursor:pointer; font-weight:700; }
+
 </style>
 </head>
 <body>
@@ -2995,6 +3010,10 @@
     <div class="header-time">
       <div id="clock">19:52:10</div>
       <div class="header-date" id="dateLbl">TER., 02 DE JUN.</div>
+      <button onclick="kvRelatorio.abrirModal()" id="btnAbrirRelatorio" title="Gerar relatório em PDF" style="display:none; margin-top: 5px; background: transparent; border: 1px solid rgba(0, 229, 255, 0.25); color: rgba(0, 229, 255, 0.5); border-radius: 6px; padding: 3px 8px; font-family: var(--font-display); font-size: 8px; letter-spacing: 1px; cursor: pointer; transition: 0.2s; align-items: center; gap: 4px;" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='rgba(0,229,255,0.25)';this.style.color='rgba(0,229,255,0.5)'">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        RELATÓRIO
+      </button>
       <div class="session-badge admin" id="sessionBadge" onclick="abrirMenuSessao()" title="Sessão ativa — clique para opções" style="display: inline-flex;">
         <span id="sessionIcon">🔐</span>
         <span id="sessionName">Administrador</span>
@@ -5021,6 +5040,7 @@
 
   function renderGerenciarUsuarios() {
     const body = document.getElementById('usermgmtBody');
+    const isSindico = window.KV_AUTH && KV_AUTH.getRole && KV_AUTH.getRole() === 'sindico';
     body.innerHTML = `
       <div class="usermgmt-section">
         <div class="usermgmt-section-title">🏠 Moradores do condomínio</div>
@@ -5037,7 +5057,22 @@
           <button type="button" onclick="adminCadastrarMoradorFirebase()" class="login-btn" style="width:100%;">+ CADASTRAR MORADOR</button>
           <div id="admMoradorResultado" style="display:none;font-size:12px;font-family:var(--font-display);letter-spacing:0.5px;padding:8px;border-radius:8px;"></div>
         </div>
-      </div>`;
+      </div>
+      ${isSindico ? `
+      <div class="usermgmt-section">
+        <div class="usermgmt-section-title">👮 Porteiros da equipe</div>
+        <div id="listaPorteirosFirestore" style="font-family:var(--font-display);font-size:11px;color:var(--text-dim);letter-spacing:1px;">Carregando...</div>
+      </div>
+      <div class="usermgmt-section">
+        <div class="usermgmt-section-title">➕ Convidar novo porteiro</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+          <input type="text" id="admPorteiroNome" placeholder="Nome do porteiro" class="login-input" style="width:100%;">
+          <input type="email" id="admPorteiroEmail" placeholder="E-mail" class="login-input" style="width:100%;">
+          <input type="tel" id="admPorteiroTelefone" placeholder="Telefone com DDD (ex: 11987654321)" class="login-input" style="width:100%;" oninput="mascararCelular(this)" maxlength="15">
+          <button type="button" onclick="adminCadastrarPorteiroFirebase()" class="login-btn" style="width:100%;">+ CADASTRAR PORTEIRO</button>
+          <div id="admPorteiroResultado" style="display:none;font-size:12px;font-family:var(--font-display);letter-spacing:0.5px;padding:8px;border-radius:8px;"></div>
+        </div>
+      </div>` : ''}`;
 
     // Carrega moradores do Firestore de forma assíncrona
     kvMoradores.listarMoradores().then(moradores => {
@@ -5065,7 +5100,51 @@
       const el = document.getElementById('listaMoradoresFirestore');
       if (el) el.textContent = 'Erro ao carregar moradores.';
     });
+
+    // Carrega porteiros do Firestore (só se a seção existir, ou seja, se for síndico)
+    if (isSindico) {
+      kvPorteiros.listarPorteiros().then(porteiros => {
+        const el = document.getElementById('listaPorteirosFirestore');
+        if (!el) return;
+        if (!porteiros.length) {
+          el.textContent = 'Nenhum porteiro cadastrado ainda.';
+          return;
+        }
+        el.innerHTML = porteiros.map(p => `
+          <div class="user-entry" style="margin-bottom:8px;">
+            <div class="user-entry-info">
+              <div class="user-entry-name">${p.nome}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+                <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:${p.status==='ativo'?'rgba(0,230,118,0.1)':'rgba(255,171,0,0.1)'};border:1px solid ${p.status==='ativo'?'rgba(0,230,118,0.35)':'rgba(255,171,0,0.35)'};color:${p.status==='ativo'?'var(--green)':'var(--amber)'};">${p.status === 'ativo' ? '✓ Ativo' : '⏳ Aguardando'} ${p.status !== 'ativo' ? '— Código: '+p.codigoConvite : ''}</span>
+              </div>
+              <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${p.email}</div>
+            </div>
+            <button type="button" onclick="adminExcluirPorteiro('${p.id}', '${(p.nome || '').replace(/'/g, "\\'")}', ${p.uid ? `'${p.uid}'` : 'null'})" title="Excluir porteiro" style="background:rgba(255,85,119,0.1);border:1px solid rgba(255,85,119,0.4);color:#ff5577;border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;flex-shrink:0;align-self:center;">
+              🗑
+            </button>
+          </div>`).join('');
+      }).catch(() => {
+        const el = document.getElementById('listaPorteirosFirestore');
+        if (el) el.textContent = 'Erro ao carregar porteiros.';
+      });
+    }
   }
+
+  window.adminExcluirPorteiro = async function(id, nome, uid) {
+    const confirmado = confirm(`Excluir "${nome}" da equipe?\n\nIsso remove o cadastro e revoga o acesso ao app. Essa ação não pode ser desfeita.`);
+    if (!confirmado) return;
+    try {
+      await kvPorteiros.excluirPorteiro(id);
+      if (uid) {
+        try { await firebase.firestore().collection('usuarios').doc(uid).delete(); }
+        catch(e) { console.warn('Aviso: não foi possível revogar o acesso completo:', e.message); }
+      }
+      renderGerenciarUsuarios();
+      if (typeof mostrarNotif === 'function') mostrarNotif('🗑 Porteiro excluído e acesso revogado.', 'red');
+    } catch(e) {
+      alert('Erro ao excluir: ' + e.message);
+    }
+  };
 
   window.adminExcluirMorador = async function(id, nome, uid) {
     const confirmado = confirm(`Excluir "${nome}" do condomínio?\n\nIsso remove o cadastro e revoga o acesso ao app. Essa ação não pode ser desfeita.`);
@@ -5114,6 +5193,10 @@
     });
     const encBtnReg = document.getElementById('encBtnRegistrar');
     if (encBtnReg) encBtnReg.style.display = isMorador ? 'none' : '';
+
+    // Relatório PDF — só equipe (síndico ou porteiro), nunca morador
+    const btnRelatorio = document.getElementById('btnAbrirRelatorio');
+    if (btnRelatorio) btnRelatorio.style.display = (KV_AUTH.getRole() === 'sindico' || KV_AUTH.getRole() === 'user') ? 'flex' : 'none';
 
     // Logo upload — só admin
     const logoWrap = document.getElementById('companyLogoWrap');
@@ -10611,6 +10694,361 @@ const kvMoradores = (() => {
   return { cadastrarMorador, listarMoradores, excluirMorador, primeiroAcesso, loginMorador, colMoradores };
 })();
 
+// ── MÓDULO PORTEIROS (FIRESTORE) ──
+// Espelha exatamente o padrão de kvMoradores: convite por código, primeiro
+// acesso cria a conta no Firebase Auth + o espelho em usuarios/{uid} com
+// role:'user' (equipe). Só o síndico pode convidar (decisão consciente:
+// dar mais gente a chance de criar novas contas de equipe é sensível).
+const kvPorteiros = (() => {
+  function condominioIdAtivo() {
+    const id = window.KV_AUTH && KV_AUTH.getCondominioId && KV_AUTH.getCondominioId();
+    if (!id) throw new Error('Nenhum condomínio ativo na sessão. Faça login novamente.');
+    return id;
+  }
+
+  function colPorteirosDoCondominio(condominioId) {
+    return firebase.firestore().collection('condominios').doc(condominioId).collection('porteiros');
+  }
+  function colPorteiros() {
+    return colPorteirosDoCondominio(condominioIdAtivo());
+  }
+  // Usada no primeiro acesso, antes de sabermos o condominioId.
+  function colPorteirosTodosCondominios() {
+    return firebase.firestore().collectionGroup('porteiros');
+  }
+
+  function gerarCodigoConvite() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let codigo = '';
+    for (let i = 0; i < 6; i++) codigo += chars[Math.floor(Math.random() * chars.length)];
+    return codigo;
+  }
+
+  async function cadastrarPorteiro({ nome, email, telefone }) {
+    if (!nome || !email) throw new Error('Nome e e-mail são obrigatórios.');
+    if (!telefone) throw new Error('Telefone é obrigatório.');
+    const codigoConvite = gerarCodigoConvite();
+    const ref = await colPorteiros().add({
+      nome, email: email.trim().toLowerCase(), telefone: telefone.trim(),
+      codigoConvite, uid: null, status: 'convidado',
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    return { id: ref.id, codigoConvite };
+  }
+
+  async function listarPorteiros() {
+    const snap = await colPorteiros().orderBy('nome').get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+
+  async function excluirPorteiro(id) {
+    await colPorteiros().doc(id).delete();
+  }
+
+  async function primeiroAcesso(codigoConvite, senha) {
+    const snap = await colPorteirosTodosCondominios()
+      .where('codigoConvite', '==', codigoConvite.toUpperCase().trim())
+      .where('status', '==', 'convidado')
+      .limit(1).get();
+
+    if (snap.empty) throw new Error('Código inválido ou já utilizado.');
+
+    const doc = snap.docs[0];
+    const dados = doc.data();
+    const condominioId = doc.ref.parent.parent.id;
+
+    const cred = await firebase.auth().createUserWithEmailAndPassword(dados.email, senha);
+
+    await doc.ref.update({
+      uid: cred.user.uid,
+      status: 'ativo',
+      ativadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Espelho em usuarios/{uid} — é isso que dá acesso de verdade (role:'user').
+    await firebase.firestore().collection('usuarios').doc(cred.user.uid).set({
+      condominioId, role: 'user', nome: dados.nome, email: dados.email,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { uid: cred.user.uid, nome: dados.nome, porteiroId: doc.id, condominioId };
+  }
+
+  return { cadastrarPorteiro, listarPorteiros, excluirPorteiro, primeiroAcesso, colPorteiros };
+})();
+
+// ── ONBOARDING (tutorial do síndico) ──
+// Roda só na primeira vez que um síndico loga num condomínio vazio (sem
+// nenhum morador cadastrado ainda). Fica marcado como "visto" no
+// localStorage — é só um recado visual, não precisa sincronizar entre
+// dispositivos nem exige mudança nas regras do Firestore.
+const kvOnboarding = (() => {
+  let passo = 0;
+  let condominioId = null;
+
+  const PASSOS = [
+    { titulo: 'Bem-vindo ao KeyVault! 🎉', texto: 'Vamos configurar seu condomínio em 3 passos rápidos. Leva menos de 2 minutos.', alvo: null },
+    { titulo: '1. Cadastre as chaves', texto: 'Toque em "+ Nova chave" na seção Claviculário pra registrar as chaves do prédio (portão, salão, área comum...).', alvo: '.add-btn' },
+    { titulo: '2. Convide os moradores', texto: 'Toque no seu nome (aqui em cima) → Gerenciar Usuários, pra convidar os moradores do condomínio.', alvo: '#sessionBadge' },
+    { titulo: '3. Convide o porteiro', texto: 'No mesmo painel de Gerenciar Usuários, você também convida a equipe (porteiro).', alvo: '#sessionBadge' },
+    { titulo: 'Prontinho! ✅', texto: 'Você já pode usar o KeyVault. Pode explorar o resto sozinho — qualquer coisa, os botões falam por si.', alvo: null },
+  ];
+
+  function _jaViu() {
+    return condominioId && localStorage.getItem('kv_onboarding_' + condominioId) === '1';
+  }
+  function _marcarVisto() {
+    if (condominioId) { try { localStorage.setItem('kv_onboarding_' + condominioId, '1'); } catch(e) {} }
+  }
+
+  async function iniciarSeNecessario() {
+    const role = window.KV_AUTH ? KV_AUTH.getRole() : null;
+    if (role !== 'sindico') return;
+    condominioId = KV_AUTH.getCondominioId();
+    if (!condominioId || _jaViu()) return;
+    try {
+      const moradores = await kvMoradores.listarMoradores();
+      if (moradores.length > 0) { _marcarVisto(); return; } // condomínio não é novo, não incomoda
+    } catch(e) { return; }
+    passo = 0;
+    setTimeout(mostrarPasso, 600); // dá tempo da tela assentar antes de abrir
+  }
+
+  function _limparSpot() {
+    document.querySelectorAll('.onboarding-spot').forEach(el => el.classList.remove('onboarding-spot'));
+  }
+
+  function mostrarPasso() {
+    _limparSpot();
+    const p = PASSOS[passo];
+    const dim = document.getElementById('onboardingDim');
+    const card = document.getElementById('onboardingCard');
+    document.getElementById('onboardingTitle').textContent = p.titulo;
+    document.getElementById('onboardingText').textContent = p.texto;
+    document.getElementById('onboardingBtnNext').textContent = (passo === PASSOS.length - 1) ? 'Concluir' : 'Próximo';
+
+    const dotsEl = document.getElementById('onboardingDots');
+    dotsEl.innerHTML = PASSOS.map((_, i) => `<div class="onboarding-dot${i === passo ? ' active' : ''}"></div>`).join('');
+
+    dim.classList.add('open');
+    card.classList.add('open');
+
+    const alvo = p.alvo ? document.querySelector(p.alvo) : null;
+    if (alvo) {
+      alvo.classList.add('onboarding-spot');
+      alvo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => _posicionarCard(alvo), 300); // espera o scroll suave terminar
+    } else {
+      _posicionarCard(null);
+    }
+  }
+
+  function _posicionarCard(alvo) {
+    const card = document.getElementById('onboardingCard');
+    const vw = window.innerWidth, vh = window.innerHeight;
+    if (!alvo) {
+      card.style.left = '50%';
+      card.style.top = '50%';
+      card.style.transform = 'translate(-50%, -50%)';
+      return;
+    }
+    card.style.transform = 'none';
+    const r = alvo.getBoundingClientRect();
+    const cardW = Math.min(270, vw - 32);
+    let left = r.left + r.width/2 - cardW/2;
+    left = Math.max(16, Math.min(left, vw - cardW - 16));
+    let top = r.bottom + 14;
+    if (top + 160 > vh) top = Math.max(16, r.top - 174); // não cabe embaixo, mostra em cima
+    card.style.left = left + 'px';
+    card.style.top = top + 'px';
+  }
+
+  function proximo() {
+    if (passo >= PASSOS.length - 1) { finalizar(); return; }
+    passo++;
+    mostrarPasso();
+  }
+
+  function pular() { finalizar(); }
+
+  function finalizar() {
+    _limparSpot();
+    document.getElementById('onboardingDim').classList.remove('open');
+    document.getElementById('onboardingCard').classList.remove('open');
+    _marcarVisto();
+  }
+
+  document.addEventListener('kv-login', function() { setTimeout(iniciarSeNecessario, 300); });
+
+  return { proximo, pular };
+})();
+
+// ── RELATÓRIO EM PDF ──
+// Gera um PDF com o resumo do período (encomendas, chaves, prestadores,
+// enquetes) direto no navegador — sem servidor, sem custo. Usa jsPDF,
+// carregada sob demanda (só quando alguém realmente clica em "Relatório"),
+// pra não pesar o carregamento normal do app pra quem nunca usa isso.
+const kvRelatorio = (() => {
+  let _jsPdfCarregado = false;
+
+  function _carregarJsPdf() {
+    return new Promise((resolve, reject) => {
+      if (_jsPdfCarregado || window.jspdf) { resolve(); return; }
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      script.onload = () => { _jsPdfCarregado = true; resolve(); };
+      script.onerror = () => reject(new Error('Não foi possível carregar a biblioteca de PDF. Verifique sua conexão.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  function _hoje() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function _primeiroDiaDoMes() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-01';
+  }
+
+  function abrirModal() {
+    document.getElementById('relatorioDataInicio').value = _primeiroDiaDoMes();
+    document.getElementById('relatorioDataFim').value = _hoje();
+    document.getElementById('relatorioErro').style.display = 'none';
+    document.getElementById('relatorioOverlay').classList.add('open');
+  }
+  function fecharModal() {
+    document.getElementById('relatorioOverlay').classList.remove('open');
+  }
+
+  async function gerar() {
+    const inicioStr = document.getElementById('relatorioDataInicio').value;
+    const fimStr = document.getElementById('relatorioDataFim').value;
+    const erroEl = document.getElementById('relatorioErro');
+    erroEl.style.display = 'none';
+
+    if (!inicioStr || !fimStr) { erroEl.textContent = 'Preencha as duas datas.'; erroEl.style.display = 'block'; return; }
+    if (inicioStr > fimStr) { erroEl.textContent = 'A data inicial precisa ser antes da data final.'; erroEl.style.display = 'block'; return; }
+
+    const inicioMs = new Date(inicioStr + 'T00:00:00').getTime();
+    const fimMs = new Date(fimStr + 'T23:59:59').getTime();
+
+    const btn = document.getElementById('relatorioBtnGerar');
+    const txtOriginal = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Gerando...';
+
+    try {
+      await _carregarJsPdf();
+      const condominioId = window.KV_AUTH.getCondominioId();
+      const db = firebase.firestore();
+
+      // Busca tudo em paralelo — cada consulta já filtrada por data quando possível.
+      const [condSnap, brandingSnap, encSnap, prestSnap, enqSnap, logSnap] = await Promise.all([
+        db.collection('condominios').doc(condominioId).get(),
+        db.collection('condominios').doc(condominioId).collection('config').doc('branding').get().catch(() => null),
+        db.collection('condominios').doc(condominioId).collection('encomendas')
+          .where('ts', '>=', inicioMs).where('ts', '<=', fimMs).get(),
+        db.collection('condominios').doc(condominioId).collection('prestadores').get(),
+        db.collection('condominios').doc(condominioId).collection('enquetes').get(),
+        db.collection('condominios').doc(condominioId).collection('chavesLog')
+          .where('ts', '>=', firebase.firestore.Timestamp.fromMillis(inicioMs))
+          .where('ts', '<=', firebase.firestore.Timestamp.fromMillis(fimMs)).get().catch(() => ({ docs: [] })),
+      ]);
+
+      const nomeCondominio = condSnap.exists ? (condSnap.data().nome || 'Condomínio') : 'Condomínio';
+      const logoBase64 = (brandingSnap && brandingSnap.exists) ? brandingSnap.data().logo : null;
+
+      const encomendas = encSnap.docs.map(d => d.data());
+      const totalEnc = encomendas.length;
+      const encEntregues = encomendas.filter(e => e.status === 'entregue').length;
+      const encFaltantes = encomendas.filter(e => e.faltante).length;
+      const encAguardando = totalEnc - encEntregues;
+
+      const prestadores = prestSnap.docs.map(d => d.data())
+        .filter(p => p.criadoEmTs && p.criadoEmTs.toMillis() >= inicioMs && p.criadoEmTs.toMillis() <= fimMs);
+      const totalPrest = prestadores.length;
+      const prestConcluidos = prestadores.filter(p => p.status === 'concluido').length;
+      const prestCancelados = prestadores.filter(p => p.status === 'cancelado').length;
+
+      const enquetes = enqSnap.docs.map(d => d.data())
+        .filter(e => e.criadoEmTs && e.criadoEmTs.toMillis() >= inicioMs && e.criadoEmTs.toMillis() <= fimMs);
+      const totalEnquetes = enquetes.length;
+
+      const totalLogChaves = logSnap.docs.length;
+
+      // ── Monta o PDF ──
+      const doc = new window.jspdf.jsPDF();
+      const pageW = doc.internal.pageSize.getWidth();
+      let y = 18;
+
+      if (logoBase64) {
+        try { doc.addImage(logoBase64, 'JPEG', 14, y - 6, 30, 14, undefined, 'FAST'); } catch(e) {}
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.text(nomeCondominio, logoBase64 ? 50 : 14, y);
+      y += 7;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(120);
+      doc.text('Relatório KeyVault — período de ' + _formatarData(inicioStr) + ' a ' + _formatarData(fimStr), logoBase64 ? 50 : 14, y);
+      y += 12;
+      doc.setDrawColor(200);
+      doc.line(14, y, pageW - 14, y);
+      y += 10;
+
+      doc.setTextColor(0);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('Resumo do período', 14, y);
+      y += 9;
+
+      const linhas = [
+        ['📦 Encomendas registradas', String(totalEnc)],
+        ['   — Entregues', String(encEntregues)],
+        ['   — Aguardando retirada', String(encAguardando)],
+        ['   — Reportadas como faltante', String(encFaltantes)],
+        ['🔧 Prestadores de serviço agendados', String(totalPrest)],
+        ['   — Concluídos', String(prestConcluidos)],
+        ['   — Cancelados', String(prestCancelados)],
+        ['🔑 Ações no claviculário (retiradas/devoluções/etc.)', String(totalLogChaves)],
+        ['📊 Enquetes criadas', String(totalEnquetes)],
+      ];
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      linhas.forEach(([label, valor]) => {
+        doc.text(label, 14, y);
+        doc.text(valor, pageW - 14, y, { align: 'right' });
+        y += 8;
+      });
+
+      y += 6;
+      doc.setDrawColor(200);
+      doc.line(14, y, pageW - 14, y);
+      y += 8;
+      doc.setFontSize(8.5);
+      doc.setTextColor(150);
+      doc.text('Gerado em ' + new Date().toLocaleString('pt-BR') + ' pelo KeyVault.', 14, y);
+
+      doc.save(`relatorio-${nomeCondominio.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${inicioStr}-a-${fimStr}.pdf`);
+      fecharModal();
+      if (typeof mostrarNotif === 'function') mostrarNotif('📄 Relatório gerado!');
+    } catch(e) {
+      erroEl.textContent = 'Erro ao gerar relatório: ' + e.message;
+      erroEl.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = txtOriginal;
+    }
+  }
+
+  function _formatarData(iso) {
+    const [ano, mes, dia] = iso.split('-');
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  return { abrirModal, fecharModal, gerar };
+})();
+
 // ══════════════════════════════════════════════════════════════════
 //  KV_TENANT — CADASTRO MULTI-CONDOMÍNIO, LOGIN ÚNICO E RECUPERAÇÃO
 //  DE SENHA (Firebase Auth real, sem conta-sombra, sem senha local)
@@ -10737,6 +11175,20 @@ function entrarComoMorador({ nome, apto, moradorId, condominioId }) {
   if (typeof atualizarSessionBadge === 'function') atualizarSessionBadge();
   if (typeof aplicarRestricoesPerfil === 'function') aplicarRestricoesPerfil();
   document.dispatchEvent(new CustomEvent('kv-login', { detail: { role: 'morador', username: moradorId, displayName: nome, apto: apto, condominioId: condominioId } }));
+}
+
+function entrarComoPorteiro({ nome, porteiroId, condominioId }) {
+  window.KV_AUTH.saveSession({
+    role: 'user',
+    username: porteiroId,
+    displayName: nome,
+    condominioId: condominioId,
+  });
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('moradorPanel').style.display = 'none';
+  if (typeof atualizarSessionBadge === 'function') atualizarSessionBadge();
+  if (typeof aplicarRestricoesPerfil === 'function') aplicarRestricoesPerfil();
+  document.dispatchEvent(new CustomEvent('kv-login', { detail: { role: 'user', username: porteiroId, displayName: nome, condominioId: condominioId } }));
 }
 
 // ── MÓDULO VISITANTES (FIRESTORE) ──
@@ -11597,8 +12049,16 @@ async function executarAcaoMoradorPanel() {
       const senha  = document.getElementById('moradorNovaSenha').value;
       if (!codigo || !senha) throw new Error('Preencha o código e a nova senha.');
       if (senha.length < 6) throw new Error('A senha precisa ter ao menos 6 caracteres.');
-      const dados = await kvMoradores.primeiroAcesso(codigo, senha);
-      entrarComoMorador(dados);
+      try {
+        const dados = await kvMoradores.primeiroAcesso(codigo, senha);
+        entrarComoMorador(dados);
+      } catch (errMorador) {
+        if (errMorador.message !== 'Código inválido ou já utilizado.') throw errMorador;
+        // Não era um código de morador — tenta como convite de porteiro
+        // antes de desistir e mostrar erro.
+        const dados = await kvPorteiros.primeiroAcesso(codigo, senha);
+        entrarComoPorteiro(dados);
+      }
     }
   } catch (e) {
     erroEl.textContent = e.message;
@@ -11750,6 +12210,55 @@ async function adminCadastrarMoradorFirebase() {
     resEl.textContent = '✗ Erro: ' + e.message;
   }
 }
+
+async function adminCadastrarPorteiroFirebase() {
+  const resEl = document.getElementById('admPorteiroResultado');
+  resEl.style.display = 'none';
+  try {
+    const nome     = document.getElementById('admPorteiroNome').value.trim();
+    const email    = document.getElementById('admPorteiroEmail').value.trim();
+    const telefone = document.getElementById('admPorteiroTelefone').value.trim();
+
+    if (!telefone) {
+      const telInput = document.getElementById('admPorteiroTelefone');
+      telInput.focus();
+      telInput.style.borderColor = 'var(--red)';
+      setTimeout(() => telInput.style.borderColor = '', 1500);
+      resEl.style.display = 'block';
+      resEl.style.background = 'rgba(255,85,119,0.12)';
+      resEl.style.border = '1px solid #ff5577';
+      resEl.style.color = '#ff5577';
+      resEl.textContent = '✗ Telefone é obrigatório — precisamos dele pra mandar o convite pelo WhatsApp.';
+      return;
+    }
+
+    const { codigoConvite } = await kvPorteiros.cadastrarPorteiro({ nome, email, telefone });
+
+    const linkApp = window.location.origin + window.location.pathname;
+    const nomeCondominio = (window.KV_AUTH && KV_AUTH.getCondominioNome) ? KV_AUTH.getCondominioNome() : 'seu condomínio';
+    const foneDigits = telefone.replace(/\D/g, '');
+    const foneComDDI = foneDigits.length <= 11 ? '55' + foneDigits : foneDigits;
+    const mensagem = `Olá, ${nome}! Você foi cadastrado(a) como porteiro no KeyVault (app do ${nomeCondominio}).%0A%0A📲 Acesse: ${linkApp}%0A🔑 Seu código de convite: *${codigoConvite}*%0A%0AUse esse código no primeiro acesso pra criar sua senha.`;
+    const linkWhatsApp = `https://wa.me/${foneComDDI}?text=${mensagem}`;
+
+    resEl.style.display = 'block';
+    resEl.style.background = 'rgba(0,229,255,0.12)';
+    resEl.style.border = '1px solid var(--cyan)';
+    resEl.style.color = 'var(--cyan)';
+    resEl.innerHTML = `✓ Cadastrado! Código de convite: <b>${codigoConvite}</b><br><br>
+      <a href="${linkWhatsApp}" target="_blank" rel="noopener" style="display:inline-block;background:#25D366;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-family:var(--font-display);letter-spacing:0.5px;">📲 Enviar convite pelo WhatsApp</a>`;
+
+    document.getElementById('admPorteiroNome').value = '';
+    document.getElementById('admPorteiroEmail').value = '';
+    document.getElementById('admPorteiroTelefone').value = '';
+  } catch (e) {
+    resEl.style.display = 'block';
+    resEl.style.background = 'rgba(255,85,119,0.12)';
+    resEl.style.border = '1px solid #ff5577';
+    resEl.style.color = '#ff5577';
+    resEl.textContent = '✗ Erro: ' + e.message;
+  }
+}
 </script>
 
 <!-- ── PWA: manifest + service worker ── -->
@@ -11828,4 +12337,38 @@ async function adminCadastrarMoradorFirebase() {
 
   window.addEventListener('load', configurarBannerInstalacao);
 </script>
+<!-- ── RELATÓRIO PDF ── -->
+<div class="prest-overlay" id="relatorioOverlay">
+  <div class="prest-modal">
+    <div class="prest-modal-bar"></div>
+    <div class="prest-modal-handle"></div>
+    <div class="prest-modal-head">
+      <div class="prest-modal-title">📄 Gerar Relatório</div>
+    </div>
+    <div class="prest-modal-body">
+      <label class="form-label">De</label>
+      <input class="form-input" id="relatorioDataInicio" type="date">
+      <label class="form-label">Até</label>
+      <input class="form-input" id="relatorioDataFim" type="date">
+      <div id="relatorioErro" style="display:none;color:var(--red);font-size:11.5px;margin-top:6px;"></div>
+    </div>
+    <div class="prest-modal-footer">
+      <button class="prest-btn-cancel" onclick="kvRelatorio.fecharModal()">Cancelar</button>
+      <button class="prest-btn-confirm" id="relatorioBtnGerar" onclick="kvRelatorio.gerar()">📄 Gerar PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ONBOARDING (tutorial do síndico) ── -->
+<div class="onboarding-dim" id="onboardingDim"></div>
+<div class="onboarding-card" id="onboardingCard">
+  <div class="onboarding-title" id="onboardingTitle"></div>
+  <div class="onboarding-text" id="onboardingText"></div>
+  <div class="onboarding-footer">
+    <button class="onboarding-btn-skip" onclick="kvOnboarding.pular()">Pular tutorial</button>
+    <div class="onboarding-dots" id="onboardingDots"></div>
+    <button class="onboarding-btn-next" id="onboardingBtnNext" onclick="kvOnboarding.proximo()">Próximo</button>
+  </div>
+</div>
+
 </body></html>
