@@ -11280,6 +11280,12 @@ const kvSectorOrder = (() => {
   document.addEventListener('kv-login', function() {
     setTimeout(() => { _injetarAlcas(); _aplicarOrdemSalva(); }, 200);
   });
+  // Cobre o caso de F5/recarregar a página com uma sessão já restaurada —
+  // nesse caso o evento 'kv-login' não dispara de novo (só dispara num
+  // login de verdade), então checamos aqui também.
+  if (window.KV_AUTH && KV_AUTH.isLoggedIn && KV_AUTH.isLoggedIn()) {
+    setTimeout(() => { _injetarAlcas(); _aplicarOrdemSalva(); }, 200);
+  }
 
   return {};
 })();
