@@ -2975,6 +2975,13 @@
   .onboarding-btn-skip { background:none; border:none; color:var(--text-dim); font-size:11px; cursor:pointer; text-decoration:underline; padding:4px; }
   .onboarding-btn-next { background:var(--cyan); color:#000; border:none; border-radius:8px; padding:7px 16px; font-family:var(--font-display); font-size:11px; letter-spacing:0.5px; cursor:pointer; font-weight:700; }
 
+  /* ── REORDENAR SEÇÕES (arrastar e soltar) ── */
+  .sector-drag-handle { cursor:grab; touch-action:none; padding:2px 7px; margin-right:2px; font-size:15px; line-height:1; color:var(--text-dim); user-select:none; display:inline-block; border-radius:5px; }
+  .sector-drag-handle:hover { color:var(--cyan); background:rgba(0,229,255,0.08); }
+  .sector-drag-handle:active { cursor:grabbing; }
+  .sector-dragging { opacity:0.94; box-shadow:0 14px 34px rgba(0,0,0,0.55); pointer-events:none; }
+  .sector-drag-placeholder { border:2px dashed var(--cyan); border-radius:14px; margin:10px 0; background:rgba(0,229,255,0.05); }
+
 </style>
 </head>
 <body>
@@ -3254,13 +3261,40 @@
       <div style="display:flex;align-items:center;gap:6px;">
         <svg class="prest-toggle-arrow" id="enqToggleArrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
         <span class="prest-count-badge" id="enqCountBadge" style="background: rgba(0, 229, 255, 0.06);">0</span>
-        <span class="prest-title">📊 Enquetes</span>
+        <span class="prest-title" id="enqTitleLabel">📊 Enquetes</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation()">
         <button class="prest-add-btn" id="enqBtnCriar" onclick="kvEnquetes.abrirModalCriar()" style="display:none;">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           Criar
         </button>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;padding:0 14px 6px;" onclick="event.stopPropagation()">
+      <button class="enc-palette-btn" id="enqPaletteBtn" onclick="toggleEnqColorPanel()" title="Personalizar cores">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+          <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+          <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+          <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+        </svg>
+      </button>
+    </div>
+    <!-- Painel de cores enquetes (oculto por padrão) -->
+    <div class="enc-color-panel" id="enqColorPanel" onclick="event.stopPropagation()">
+      <div class="enc-color-panel-title">🎨 Personalizar cor da seção</div>
+      <div class="enc-color-swatches" id="enqColorSwatches">
+        <div class="enc-color-swatch" data-color="grey"   style="background:#9eaab5;" onclick="aplicarCorEnquetes('grey','#9eaab5','rgba(158,170,181,0.22)','rgba(158,170,181,0.5)')" title="Cinza"></div>
+        <div class="enc-color-swatch active" data-color="cyan"   style="background:#00e5ff;" onclick="aplicarCorEnquetes('cyan','#00e5ff','rgba(0,229,255,0.22)','rgba(0,229,255,0.5)')" title="Ciano (padrão)"></div>
+        <div class="enc-color-swatch" data-color="green"  style="background:#00e676;" onclick="aplicarCorEnquetes('green','#00e676','rgba(0,230,118,0.22)','rgba(0,230,118,0.5)')" title="Verde"></div>
+        <div class="enc-color-swatch" data-color="amber"  style="background:#ffab00;" onclick="aplicarCorEnquetes('amber','#ffab00','rgba(255,171,0,0.22)','rgba(255,171,0,0.5)')" title="Âmbar"></div>
+        <div class="enc-color-swatch" data-color="purple" style="background:#d500f9;" onclick="aplicarCorEnquetes('purple','#d500f9','rgba(213,0,249,0.22)','rgba(213,0,249,0.5)')" title="Roxo"></div>
+        <div class="enc-color-swatch" data-color="red"    style="background:#ff1744;" onclick="aplicarCorEnquetes('red','#ff1744','rgba(255,23,68,0.22)','rgba(255,23,68,0.5)')" title="Vermelho"></div>
+        <div class="enc-color-swatch" data-color="pink"   style="background:#f06292;" onclick="aplicarCorEnquetes('pink','#f06292','rgba(240,98,146,0.22)','rgba(240,98,146,0.5)')" title="Rosa"></div>
+        <div class="enc-color-swatch" data-color="orange" style="background:#ff6d00;" onclick="aplicarCorEnquetes('orange','#ff6d00','rgba(255,109,0,0.22)','rgba(255,109,0,0.5)')" title="Laranja"></div>
+        <div class="enc-color-swatch" data-color="indigo" style="background:#536dfe;" onclick="aplicarCorEnquetes('indigo','#536dfe','rgba(83,109,254,0.22)','rgba(83,109,254,0.5)')" title="Índigo"></div>
+        <div class="enc-color-swatch" data-color="teal"   style="background:#1de9b6;" onclick="aplicarCorEnquetes('teal','#1de9b6','rgba(29,233,182,0.22)','rgba(29,233,182,0.5)')" title="Teal"></div>
       </div>
     </div>
     <div class="prest-list-wrap" id="enqListWrap" style="display:none;">
@@ -3334,7 +3368,7 @@
 
   <!-- SETOR DE VISITANTES -->
   <div class="enc-sector" id="visitSector">
-  <div class="enc-sector-label">👥 <span>VISITANTES</span></div>
+  <div class="enc-sector-label" id="visitSectorLabel">👥 <span>VISITANTES</span></div>
   <div class="prest-section">
     <div class="prest-header" onclick="kvVisitantes.toggleLista(event)" style="cursor:pointer;user-select:none;">
       <div style="display:flex;align-items:center;gap:6px;">
@@ -9001,6 +9035,73 @@
       } catch(e) {}
     })();
 
+    window.toggleEnqColorPanel = function() {
+      const panel = document.getElementById('enqColorPanel');
+      panel.classList.toggle('open');
+    };
+
+    window.aplicarCorEnquetes = function(colorKey, hex, bgHover, borderColor) {
+      try { localStorage.setItem('kv_enq_color', JSON.stringify({colorKey, hex, bgHover, borderColor})); } catch(e) {}
+
+      document.querySelectorAll('#enqColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
+      const activeSwatch = document.querySelector(`#enqColorSwatches .enc-color-swatch[data-color="${colorKey}"]`);
+      if (activeSwatch) activeSwatch.classList.add('active');
+
+      window._enqColorConfig = {colorKey, hex, bgHover, borderColor};
+      _aplicarCorEnqTudo({colorKey, hex, bgHover, borderColor});
+
+      const panel = document.getElementById('enqColorPanel');
+      if (panel) panel.classList.remove('open');
+
+      mostrarNotif(`🎨 Cor da seção atualizada!`, 'grey');
+    };
+
+    function _aplicarCorEnqTudo(cfg) {
+      if (!cfg) return;
+      const {hex, bgHover, borderColor} = cfg;
+      const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+
+      const sector = document.getElementById('enqSector');
+      if (sector) {
+        sector.style.borderColor = hex;
+        sector.style.boxShadow = `0 0 0 1px rgba(${r},${g},${b},0.12), 0 0 18px rgba(${r},${g},${b},0.22), inset 0 0 24px rgba(${r},${g},${b},0.05)`;
+        sector.style.background = `rgba(${r},${g},${b},0.02)`;
+      }
+
+      const label = document.getElementById('enqSectorLabel');
+      if (label) {
+        label.style.color = hex;
+        label.style.textShadow = `0 0 10px rgba(${r},${g},${b},0.5)`;
+      }
+
+      const badge = document.getElementById('enqCountBadge');
+      if (badge) {
+        badge.style.background = `rgba(${r},${g},${b},0.1)`;
+        badge.style.borderColor = `rgba(${r},${g},${b},0.4)`;
+        badge.style.color = hex;
+      }
+
+      const title = document.getElementById('enqTitleLabel');
+      if (title) title.style.color = hex;
+    }
+
+    // Carregar cor salva de enquetes ao iniciar
+    (function() {
+      try {
+        const saved = localStorage.getItem('kv_enq_color');
+        if (saved) {
+          const cfg = JSON.parse(saved);
+          window._enqColorConfig = cfg;
+          setTimeout(() => {
+            document.querySelectorAll('#enqColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
+            const swatch = document.querySelector(`#enqColorSwatches .enc-color-swatch[data-color="${cfg.colorKey}"]`);
+            if (swatch) swatch.classList.add('active');
+            _aplicarCorEnqTudo(cfg);
+          }, 350);
+        }
+      } catch(e) {}
+    })();
+
     // Carregar cor salva de encomendas ao iniciar
     (function() {
       try {
@@ -11047,6 +11148,140 @@ const kvRelatorio = (() => {
   }
 
   return { abrirModal, fecharModal, gerar };
+})();
+
+// ── REORDENAR SEÇÕES (arrastar e soltar) ──
+// Deixa qualquer pessoa logada (morador, síndico ou porteiro) reorganizar
+// as 5 seções principais do jeito que preferir. É preferência pessoal, não
+// dado do condomínio — fica salva no dispositivo, amarrada à conta logada
+// (não precisa mudar nada no Firestore).
+const kvSectorOrder = (() => {
+  const SECTORS = [
+    { id: 'encSector',    label: 'encSectorLabel'    },
+    { id: 'prestSector',  label: 'prestSectorLabel'  },
+    { id: 'enqSector',    label: 'enqSectorLabel'    },
+    { id: 'visitSector',  label: 'visitSectorLabel'  },
+    { id: 'chavesSector', label: 'chavesSectorLabel' },
+  ];
+  const IDS = SECTORS.map(s => s.id);
+
+  let _dragEl = null, _placeholder = null, _dragOffsetY = 0, _autoScrollTimer = null;
+
+  function _chaveStorage() {
+    const username = (window.KV_AUTH && KV_AUTH.getUsername && KV_AUTH.getUsername()) || 'anon';
+    return 'kv_sector_order_' + username;
+  }
+
+  function _aplicarOrdemSalva() {
+    try {
+      const salvo = localStorage.getItem(_chaveStorage());
+      if (!salvo) return;
+      const ordem = JSON.parse(salvo);
+      ordem.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) document.body.appendChild(el); // appendChild em nó existente = move, não duplica
+      });
+    } catch(e) {}
+  }
+
+  function _ordemAtual() {
+    return Array.from(document.body.children).map(el => el.id).filter(id => IDS.includes(id));
+  }
+
+  function _salvarOrdemAtual() {
+    try { localStorage.setItem(_chaveStorage(), JSON.stringify(_ordemAtual())); } catch(e) {}
+  }
+
+  function _injetarAlcas() {
+    SECTORS.forEach(s => {
+      const label = document.getElementById(s.label);
+      if (!label || label.querySelector('.sector-drag-handle')) return; // já injetada, não duplica
+      const handle = document.createElement('span');
+      handle.className = 'sector-drag-handle';
+      handle.innerHTML = '⠿';
+      handle.title = 'Arraste para reorganizar a posição desta seção';
+      handle.dataset.sectorId = s.id;
+      label.insertBefore(handle, label.firstChild);
+      handle.addEventListener('pointerdown', _onPointerDown);
+    });
+  }
+
+  function _onPointerDown(e) {
+    const sectorId = e.currentTarget.dataset.sectorId;
+    _dragEl = document.getElementById(sectorId);
+    if (!_dragEl) return;
+    e.preventDefault();
+
+    const rect = _dragEl.getBoundingClientRect();
+    _dragOffsetY = e.clientY - rect.top;
+
+    _placeholder = document.createElement('div');
+    _placeholder.className = 'sector-drag-placeholder';
+    _placeholder.style.height = rect.height + 'px';
+    _dragEl.parentNode.insertBefore(_placeholder, _dragEl);
+
+    _dragEl.style.position = 'fixed';
+    _dragEl.style.top = rect.top + 'px';
+    _dragEl.style.left = rect.left + 'px';
+    _dragEl.style.width = rect.width + 'px';
+    _dragEl.style.zIndex = '99995';
+    _dragEl.classList.add('sector-dragging');
+    document.body.style.userSelect = 'none';
+
+    window.addEventListener('pointermove', _onPointerMove);
+    window.addEventListener('pointerup', _onPointerUp);
+  }
+
+  function _onPointerMove(e) {
+    if (!_dragEl) return;
+    _dragEl.style.top = (e.clientY - _dragOffsetY) + 'px';
+
+    // Auto-scroll perto das bordas da tela
+    const margem = 60;
+    clearInterval(_autoScrollTimer);
+    if (e.clientY < margem) {
+      _autoScrollTimer = setInterval(() => window.scrollBy(0, -12), 16);
+    } else if (e.clientY > window.innerHeight - margem) {
+      _autoScrollTimer = setInterval(() => window.scrollBy(0, 12), 16);
+    }
+
+    // Verifica sobreposição com as outras seções pra mover o placeholder
+    const outras = SECTORS.map(s => document.getElementById(s.id)).filter(el => el && el !== _dragEl);
+    for (const outra of outras) {
+      const r = outra.getBoundingClientRect();
+      if (e.clientY > r.top && e.clientY < r.bottom) {
+        const meio = r.top + r.height / 2;
+        if (e.clientY < meio) outra.parentNode.insertBefore(_placeholder, outra);
+        else outra.parentNode.insertBefore(_placeholder, outra.nextSibling);
+        break;
+      }
+    }
+  }
+
+  function _onPointerUp() {
+    if (!_dragEl) return;
+    clearInterval(_autoScrollTimer);
+    _placeholder.parentNode.insertBefore(_dragEl, _placeholder);
+    _placeholder.remove();
+    _dragEl.style.position = '';
+    _dragEl.style.top = '';
+    _dragEl.style.left = '';
+    _dragEl.style.width = '';
+    _dragEl.style.zIndex = '';
+    _dragEl.classList.remove('sector-dragging');
+    document.body.style.userSelect = '';
+    window.removeEventListener('pointermove', _onPointerMove);
+    window.removeEventListener('pointerup', _onPointerUp);
+    _salvarOrdemAtual();
+    _dragEl = null;
+    _placeholder = null;
+  }
+
+  document.addEventListener('kv-login', function() {
+    setTimeout(() => { _injetarAlcas(); _aplicarOrdemSalva(); }, 200);
+  });
+
+  return {};
 })();
 
 // ══════════════════════════════════════════════════════════════════
