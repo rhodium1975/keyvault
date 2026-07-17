@@ -11165,6 +11165,13 @@ const kvSectorOrder = (() => {
   ];
   const IDS = SECTORS.map(s => s.id);
 
+  // As seções NÃO são filhas diretas do <body> — ficam dentro de <div class="app">,
+  // que envolve o app inteiro (cabeçalho, busca, seções). É esse o contêiner
+  // que precisa ser usado pra reordenar de verdade.
+  function _container() {
+    return document.querySelector('.app');
+  }
+
   let _dragEl = null, _placeholder = null, _dragOffsetY = 0, _autoScrollTimer = null;
 
   function _chaveStorage() {
@@ -11174,18 +11181,22 @@ const kvSectorOrder = (() => {
 
   function _aplicarOrdemSalva() {
     try {
+      const container = _container();
+      if (!container) return;
       const salvo = localStorage.getItem(_chaveStorage());
       if (!salvo) return;
       const ordem = JSON.parse(salvo);
       ordem.forEach(id => {
         const el = document.getElementById(id);
-        if (el) document.body.appendChild(el); // appendChild em nó existente = move, não duplica
+        if (el) container.appendChild(el); // appendChild em nó existente = move, não duplica
       });
     } catch(e) {}
   }
 
   function _ordemAtual() {
-    return Array.from(document.body.children).map(el => el.id).filter(id => IDS.includes(id));
+    const container = _container();
+    if (!container) return [];
+    return Array.from(container.children).map(el => el.id).filter(id => IDS.includes(id));
   }
 
   function _salvarOrdemAtual() {
