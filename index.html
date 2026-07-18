@@ -11358,33 +11358,47 @@ const KV_TENANT = (() => {
     const uid = cred.user.uid;
 
     const db = firebase.firestore();
-    const batch = db.batch();
 
-    // 2) Cria o documento do condomínio
+    // 2) Cria o documento do condomínio SOZINHO, em await isolado (fora de
+    //    qualquer batch). Isso é proposital: a regra de segurança que
+    //    valida o passo 4 (usuarios/{uid}) precisa fazer um get() neste
+    //    documento para confirmar que quem está virando "sindico" foi
+    //    quem de fato criou o condomínio. Dentro de um batch, não há
+    //    garantia de que esse get() enxergue um documento criado no
+    //    mesmo batch — por isso separamos em duas etapas sequenciais.
     const condRef = db.collection('condominios').doc(condominioId);
-    batch.set(condRef, {
+    await condRef.set({
       nome: nomeCondominio || ('Condomínio de ' + nome),
       codigoAcesso,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
       criadoPorUid: uid,
     });
 
-    // 3) Cria o registro do síndico dentro do condomínio
-    const adminRef = condRef.collection('admins').doc(uid);
-    batch.set(adminRef, {
-      nome, email: emailNorm, role: 'sindico',
-      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+    try {
+      // 3) Cria o registro do síndico dentro do condomínio + o espelho em
+      //    usuarios/{uid} (esse pode continuar em batch, já que o passo 2
+      //    já foi confirmado e commitado antes de chegarmos aqui).
+      const batch = db.batch();
 
-    // 4) Cria o espelho em usuarios/{uid} — usado no login para saber
-    //    instantaneamente a qual condomínio e papel o uid pertence.
-    const userRef = db.collection('usuarios').doc(uid);
-    batch.set(userRef, {
-      condominioId, role: 'sindico', nome, email: emailNorm,
-      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+      const adminRef = condRef.collection('admins').doc(uid);
+      batch.set(adminRef, {
+        nome, email: emailNorm, role: 'sindico',
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      });
 
-    await batch.commit();
+      const userRef = db.collection('usuarios').doc(uid);
+      batch.set(userRef, {
+        condominioId, role: 'sindico', nome, email: emailNorm,
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      await batch.commit();
+    } catch (err) {
+      // Passo 3 falhou (ex.: regra rejeitou) — desfaz o condomínio órfão
+      // criado no passo 2, pra não deixar lixo no banco a cada tentativa.
+      try { await condRef.delete(); } catch (_) { /* melhor esforço */ }
+      throw err;
+    }
 
     return { uid, condominioId, codigoAcesso, nome, role: 'sindico' };
   }
