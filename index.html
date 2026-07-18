@@ -3745,7 +3745,7 @@
   </div><!-- /chaves-sector -->
 
   <!-- LOG -->
-  <div class="log-section">
+  <div class="log-section" id="logSectionFixo">
     <div class="section-header" style="padding-left:0;padding-right:0;">
       <span class="section-title">Histórico recente</span>
       <div style="display:flex;gap:7px;align-items:center;">
@@ -11184,13 +11184,24 @@ const kvSectorOrder = (() => {
       const container = _container();
       if (!container) return;
       const salvo = localStorage.getItem(_chaveStorage());
-      if (!salvo) return;
-      const ordem = JSON.parse(salvo);
-      ordem.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) container.appendChild(el); // appendChild em nó existente = move, não duplica
-      });
+      if (salvo) {
+        const ordem = JSON.parse(salvo);
+        ordem.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) container.appendChild(el); // appendChild em nó existente = move, não duplica
+        });
+      }
+      _fixarLogNoFinal();
     } catch(e) {}
+  }
+
+  // O "Histórico recente" (log de ações do claviculário) não é uma das 5
+  // seções reordenáveis — fica sempre estático no pé do app, depois de
+  // todas elas, não importa a ordem escolhida.
+  function _fixarLogNoFinal() {
+    const container = _container();
+    const log = document.getElementById('logSectionFixo');
+    if (container && log) container.appendChild(log);
   }
 
   function _ordemAtual() {
@@ -11283,6 +11294,7 @@ const kvSectorOrder = (() => {
     document.body.style.userSelect = '';
     window.removeEventListener('pointermove', _onPointerMove);
     window.removeEventListener('pointerup', _onPointerUp);
+    _fixarLogNoFinal();
     _salvarOrdemAtual();
     _dragEl = null;
     _placeholder = null;
