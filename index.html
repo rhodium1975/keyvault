@@ -10381,7 +10381,30 @@ const kvEnquetes = (() => {
     if (arrow) arrow.classList.toggle('open', historicoAberto);
   }
 
-  function render() {
+  // Gráfico compacto de % direto no card da lista (sem precisar abrir o
+  // detalhe) — usa sempre o contador agregado (só números), nunca os
+  // votos individuais, então é seguro mostrar mesmo em enquete anônima.
+  function _miniBarChartHtml(e) {
+    const agregado = e.agregado || {};
+    const totalAgregado = agregado.total || 0;
+    if (!totalAgregado) return `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Ainda sem votos.</div>`;
+    return `<div style="margin-top:8px;">` + e.opcoes.map((o, i) => {
+      const n = agregado['opt' + i] || 0;
+      const pct = totalAgregado > 0 ? Math.round((n / totalAgregado) * 100) : 0;
+      return `
+      <div style="margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">
+          <span style="color:var(--text);">${o}</span>
+          <span style="color:var(--cyan);font-weight:700;">${pct}%</span>
+        </div>
+        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:var(--cyan);"></div>
+        </div>
+      </div>`;
+    }).join('') + `<div style="font-size:10px;color:var(--text-dim);margin-top:2px;">👥 ${totalAgregado} voto${totalAgregado===1?'':'s'}</div></div>`;
+  }
+
+  async function render() {
     const el = document.getElementById('enqList');
     if (!el) return;
     const abertas = enquetes.filter(e => e.status === 'aberta');
@@ -10389,15 +10412,32 @@ const kvEnquetes = (() => {
       el.innerHTML = `<div class="empty" style="padding:16px 0;font-size:12px;">Nenhuma enquete aberta no momento.</div>`;
       return;
     }
+    // Pra decidir se mostra o gráfico já na lista (sem abrir o
+    // detalhe), precisamos saber se a pessoa já votou em cada enquete
+    // aberta — a equipe vê sempre; morador só depois de votar (mesma
+    // regra de "vote pra ver o resultado" que já existia no detalhe).
+    const user = firebase.auth().currentUser;
+    const souEquipe = _isEquipe();
+    let votosPorEnquete = {};
+    if (!souEquipe && user) {
+      await Promise.all(abertas.map(async e => {
+        try {
+          const snap = await _colVotos(e.id).doc(user.uid).get();
+          votosPorEnquete[e.id] = snap.exists;
+        } catch(err) { votosPorEnquete[e.id] = false; }
+      }));
+    }
     el.innerHTML = abertas.map(e => {
       const prazo = e.dataLimite ? new Date(e.dataLimite + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+      const jaVotou = souEquipe || !!votosPorEnquete[e.id];
       return `
       <div class="prest-card" onclick="kvEnquetes.abrirDetalhe('${e.id}')" style="cursor:pointer;">
         <div class="prest-card-top">
-          <div>
+          <div style="width:100%;">
             <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;">📊 ${e.titulo}</div>
             ${e.descricao ? `<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:4px;">${e.descricao}</div>` : ''}
             <div class="prest-info-row"><span>🗓 Até ${prazo}</span>${e.anonima ? ' <span>🕶 Anônima</span>' : ''}</div>
+            ${jaVotou ? _miniBarChartHtml(e) : `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Toque pra votar.</div>`}
           </div>
         </div>
       </div>`;
@@ -10417,11 +10457,12 @@ const kvEnquetes = (() => {
     el.innerHTML = encerradas.map(e => {
       const prazo = e.dataLimite ? new Date(e.dataLimite + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
       return `
-      <div class="prest-card" onclick="kvEnquetes.abrirDetalhe('${e.id}')" style="cursor:pointer;opacity:0.8;">
+      <div class="prest-card" onclick="kvEnquetes.abrirDetalhe('${e.id}')" style="cursor:pointer;opacity:0.9;">
         <div class="prest-card-top">
-          <div>
+          <div style="width:100%;">
             <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;">📊 ${e.titulo}</div>
             <div class="prest-info-row"><span>🏁 Encerrada — prazo era ${prazo}</span></div>
+            ${_miniBarChartHtml(e)}
           </div>
         </div>
       </div>`;
