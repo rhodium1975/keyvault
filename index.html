@@ -3430,8 +3430,12 @@
 
   <!-- SETOR DE CHAVES -->
   <div class="chaves-sector" id="chavesSector">
-  <div class="chaves-sector-label" id="chavesSectorLabel">🔑 <span>CLAVICULÁRIO</span></div>
+  <div class="chaves-sector-label" id="chavesSectorLabel" onclick="toggleChavesSector()" style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px;">
+    <svg class="prest-toggle-arrow" id="chavesToggleArrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    🔑 <span>CLAVICULÁRIO</span>
+  </div>
 
+  <div id="chavesCollapseWrap" style="display:none;">
   <!-- FILTER TABS + CATEGORY CHIPS -->
   <div class="tabs-wrap">
     <div class="tabs-row" id="tabs">
@@ -3742,6 +3746,7 @@
         
       </div></div>
 
+  </div><!-- /chavesCollapseWrap -->
   </div><!-- /chaves-sector -->
 
   <!-- LOG -->
@@ -6042,6 +6047,20 @@
     document.querySelectorAll('.tab-btn').forEach(t => t.className = 'tab-btn' + (t.dataset.custom ? ' custom' : ''));
     if (el) el.classList.add(cls || 'custom');
     render();
+  }
+
+  // ── TOGGLE (minimizar/expandir) DO CLAVICULÁRIO ──
+  // Igual ao padrão já usado em Prestadores/Enquetes/Visitantes: a seção
+  // começa sempre fechada, e só expande quando o usuário toca no
+  // cabeçalho — mesmo havendo chaves já cadastradas.
+  let chavesSectorAberto = false;
+  function toggleChavesSector() {
+    chavesSectorAberto = !chavesSectorAberto;
+    const wrap = document.getElementById('chavesCollapseWrap');
+    const arrow = document.getElementById('chavesToggleArrow');
+    if (wrap) wrap.style.display = chavesSectorAberto ? 'block' : 'none';
+    if (arrow) arrow.classList.toggle('open', chavesSectorAberto);
+    if (chavesSectorAberto) render();
   }
   function setCat(c, el, cls) {
     catFiltro = c;
@@ -10459,10 +10478,21 @@ const kvEnquetes = (() => {
     const txtOriginal = btn.textContent;
     btn.disabled = true; btn.textContent = 'Publicando...';
     try {
+      // "agregado" guarda só números (contagem por opção + total), usando
+      // chaves posicionais seguras (opt0, opt1...) em vez do texto da
+      // opção — assim funciona com qualquer opção digitada pelo síndico,
+      // sem risco de caractere inválido em nome de campo do Firestore.
+      // É esse contador que permite mostrar o resultado em % pra
+      // enquetes anônimas, sem expor quem votou em quê (ver achado
+      // "voto público em enquete anônima" da auditoria).
+      const agregado = { total: 0 };
+      opcoes.forEach((_, i) => { agregado['opt' + i] = 0; });
+
       await _colEnquetes().add({
         titulo, descricao, opcoes, dataLimite,
         anonima: anonimaAtiva,
         status: 'aberta',
+        agregado,
         criadoPorNome: (window.KV_AUTH && KV_AUTH.getDisplayName()) || 'Equipe',
         criadoEmTs: firebase.firestore.FieldValue.serverTimestamp(),
       });
@@ -10536,11 +10566,38 @@ const kvEnquetes = (() => {
     html += `<div class="prest-info-row" style="margin-bottom:12px;"><span>🗓 ${encerrada ? 'Encerrada — prazo era' : 'Até'} ${prazo}</span> ${resultadoOcultoPorAnonimato ? '' : `<span>👥 ${total} voto${total===1?'':'s'}</span>`}${e.anonima ? ' <span>🕶 Anônima</span>' : ''}</div>`;
 
     if (resultadoOcultoPorAnonimato) {
-      html += `<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:10px;">Essa enquete é anônima — o resultado fica visível só para a administração, para garantir o sigilo do voto.${meuVoto ? ' Seu voto já foi registrado.' : ''}</div>`;
-      if (!meuVoto) {
+      // Não dá pra ler os votos individuais (é isso que preserva o
+      // sigilo), mas o contador agregado da própria enquete (só números,
+      // sem nome/apto/uid de ninguém) é público pra qualquer morador do
+      // condomínio — é a partir dele que montamos o gráfico de %.
+      const agregado = e.agregado || {};
+      const totalAgregado = agregado.total || 0;
+      html += `<div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;display:flex;align-items:center;gap:5px;">🕶 Enquete anônima — resultado em % apenas, sem identificar quem votou em quê.</div>`;
+      html += `<div class="prest-info-row" style="margin-bottom:10px;"><span>👥 ${totalAgregado} voto${totalAgregado===1?'':'s'} até agora</span></div>`;
+      html += e.opcoes.map((o, i) => {
+        const n = agregado['opt' + i] || 0;
+        const pct = totalAgregado > 0 ? Math.round((n / totalAgregado) * 100) : 0;
+        const souEu = meuVoto && meuVoto.opcao === o;
+        return `
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+            <span style="color:${souEu?'var(--cyan)':'var(--text)'};font-weight:${souEu?'700':'500'};">${o}${souEu ? ' ✓ (seu voto)' : ''}</span>
+            <span style="color:var(--text-dim);">${pct}%</span>
+          </div>
+          <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${souEu?'var(--cyan)':'rgba(0,229,255,0.35)'};transition:width .3s;"></div>
+          </div>
+        </div>`;
+      }).join('');
+      if (!meuVoto && !encerrada) {
+        html += `<div style="font-size:11.5px;color:var(--text-dim);margin:10px 0;">Vote pra participar:</div>`;
         html += e.opcoes.map(o => `
           <button class="prest-btn-confirm" style="width:100%;margin-bottom:8px;" onclick="kvEnquetes.votar('${e.id}','${o.replace(/'/g,"\\'")}')">${o}</button>
         `).join('');
+      } else if (meuVoto) {
+        html += `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Seu voto já foi registrado.</div>`;
+      } else {
+        html += `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Enquete encerrada — você não votou.</div>`;
       }
       body.innerHTML = html;
       let footerHtmlAnon = `<button class="prest-btn-cancel" onclick="kvEnquetes.fecharDetalhe()" style="flex:1;">Fechar</button>`;
@@ -10611,8 +10668,21 @@ const kvEnquetes = (() => {
         if (sess.apto) dados.apto = sess.apto;
       } catch(err) {}
     }
+    const idxOpcao = (e.opcoes || []).indexOf(opcao);
     try {
-      await _colVotos(enqueteId).doc(user.uid).set(dados); // create-only pelas regras — não deixa votar 2x
+      // Batch: grava o voto E incrementa o contador agregado da enquete
+      // na mesma operação atômica. É esse contador (só números, sem
+      // nome/apto) que permite mostrar resultado em % mesmo em enquete
+      // anônima, sem expor o voto individual de ninguém.
+      const batch = firebase.firestore().batch();
+      batch.set(_colVotos(enqueteId).doc(user.uid), dados); // create-only pelas regras — não deixa votar 2x
+      if (idxOpcao > -1) {
+        const incremento = {};
+        incremento['agregado.opt' + idxOpcao] = firebase.firestore.FieldValue.increment(1);
+        incremento['agregado.total'] = firebase.firestore.FieldValue.increment(1);
+        batch.update(_colEnquetes().doc(enqueteId), incremento);
+      }
+      await batch.commit();
       mostrarNotif('✅ Voto registrado!');
       abrirDetalhe(enqueteId); // recarrega já mostrando o resultado
     } catch(err) {
@@ -10964,6 +11034,17 @@ const kvOnboarding = (() => {
 
     dim.classList.add('open');
     card.classList.add('open');
+
+    // A seção CLAVICULÁRIO agora começa minimizada — se o passo do
+    // tutorial aponta pro botão "+ Nova chave" (dentro dela), expande
+    // primeiro, senão o usuário veria o destaque apontando pra um botão
+    // escondido.
+    if (p.alvo === '.add-btn') {
+      const chavesWrap = document.getElementById('chavesCollapseWrap');
+      if (chavesWrap && chavesWrap.style.display === 'none' && typeof window.toggleChavesSector === 'function') {
+        window.toggleChavesSector();
+      }
+    }
 
     const alvo = p.alvo ? document.querySelector(p.alvo) : null;
     if (alvo) {
