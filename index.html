@@ -10386,40 +10386,60 @@ const kvEnquetes = (() => {
     if (arrow) arrow.classList.toggle('open', historicoAberto);
   }
 
-  // Linha de botões de voto — usada tanto na enquete anônima quanto na
-  // normal. Mostra a opção atual do morador desabilitada (✓) e as
-  // outras clicáveis, permitindo trocar o voto livremente até a
-  // enquete fechar.
-  function _botoesVotoHtml(e, meuVotoAtual) {
-    const label = meuVotoAtual ? 'Trocar meu voto:' : 'Vote pra participar:';
-    const botoes = e.opcoes.map(o => {
-      const selecionado = meuVotoAtual && meuVotoAtual.opcao === o;
-      return `<button class="prest-btn-confirm" style="width:100%;margin-bottom:8px;${selecionado ? 'opacity:0.55;cursor:default;' : ''}" ${selecionado ? 'disabled' : `onclick="kvEnquetes.votar('${e.id}','${o.replace(/'/g,"\\'")}')"`}>${o}${selecionado ? ' ✓' : ''}</button>`;
-    }).join('');
-    return `<div style="font-size:11.5px;color:var(--text-dim);margin:10px 0;">${label}</div>${botoes}`;
+  // Cor por opção: Sim = verde, Não = vermelho (comparação sem acento
+  ///maiúsculas, pra pegar "sim", "SIM", "não", "nao" etc.). Qualquer
+  // outra opção (enquete com mais de 2 alternativas) usa uma paleta
+  // fixa, na ordem.
+  const _PALETA_OPCOES = ['#00e5ff','#ffab00','#d500f9','#536dfe','#1de9b6','#ff6d00','#f06292','#9eaab5'];
+  function _corOpcao(o, i) {
+    const norm = (o || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (norm === 'sim') return '#00e676';
+    if (norm === 'nao') return '#ff1744';
+    return _PALETA_OPCOES[i % _PALETA_OPCOES.length];
   }
 
-  // Gráfico compacto de % direto no card da lista (sem precisar abrir o
-  // detalhe) — usa sempre o contador agregado (só números), nunca os
-  // votos individuais, então é seguro mostrar mesmo em enquete anônima.
-  function _miniBarChartHtml(e) {
+  // Linha de botões de voto — usada tanto na enquete anônima quanto na
+  // normal. Lado a lado (não empilhados), cada opção com sua cor: a
+  // selecionada aparece preenchida/sólida, as outras aparecem só
+  // contornadas na mesma cor. Clicar numa opção diferente troca o voto
+  // na hora (não dá pra ficar com duas marcadas ao mesmo tempo, porque
+  // só existe 1 documento de voto por pessoa).
+  function _botoesVotoHtml(e, meuVotoAtual) {
+    const label = meuVotoAtual ? 'Trocar meu voto:' : 'Vote pra participar:';
+    const botoes = e.opcoes.map((o, i) => {
+      const cor = _corOpcao(o, i);
+      const selecionado = meuVotoAtual && meuVotoAtual.opcao === o;
+      const estiloSelecionado = `background:${cor};border-color:${cor};color:#0a0e14;font-weight:700;`;
+      const estiloNormal = `background:transparent;border:1.5px solid ${cor};color:${cor};`;
+      return `<button class="prest-btn-confirm" style="flex:1;min-width:90px;margin:0;${selecionado ? estiloSelecionado : estiloNormal}" ${selecionado ? 'disabled' : `onclick="kvEnquetes.votar('${e.id}','${o.replace(/'/g,"\\'")}')"`}>${o}${selecionado ? ' ✓' : ''}</button>`;
+    }).join('');
+    return `<div style="font-size:11.5px;color:var(--text-dim);margin:10px 0 6px;">${label}</div><div style="display:flex;gap:8px;flex-wrap:wrap;">${botoes}</div>`;
+  }
+
+  // Gráfico de pizza compacto (SVG puro, sem lib) pra mostrar direto no
+  // card da lista, ao lado do título — usa sempre o contador agregado
+  // (só números), nunca os votos individuais, então é seguro mostrar
+  // mesmo em enquete anônima.
+  function _pieChartSvg(e, sizePx) {
     const agregado = e.agregado || {};
     const totalAgregado = agregado.total || 0;
-    if (!totalAgregado) return `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Ainda sem votos.</div>`;
-    return `<div style="margin-top:8px;">` + e.opcoes.map((o, i) => {
+    const R = 10; // raio "base" — com stroke-width = 2R, a fatia preenche do centro até a borda (vira pizza, não rosquinha)
+    const circ = 2 * Math.PI * R;
+    if (!totalAgregado) {
+      return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 40 40"><circle cx="20" cy="20" r="${R}" fill="none" stroke="var(--bg3)" stroke-width="${R*2}"/></svg>`;
+    }
+    let acumulado = 0;
+    const fatias = e.opcoes.map((o, i) => {
       const n = agregado['opt' + i] || 0;
-      const pct = totalAgregado > 0 ? Math.round((n / totalAgregado) * 100) : 0;
-      return `
-      <div style="margin-bottom:6px;">
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">
-          <span style="color:var(--text);">${o}</span>
-          <span style="color:var(--cyan);font-weight:700;">${pct}%</span>
-        </div>
-        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:var(--cyan);"></div>
-        </div>
-      </div>`;
-    }).join('') + `<div style="font-size:10px;color:var(--text-dim);margin-top:2px;">👥 ${totalAgregado} voto${totalAgregado===1?'':'s'}</div></div>`;
+      const frac = n / totalAgregado;
+      if (frac <= 0) return '';
+      const arco = frac * circ;
+      const cor = _corOpcao(o, i);
+      const svg = `<circle cx="20" cy="20" r="${R}" fill="none" stroke="${cor}" stroke-width="${R*2}" stroke-dasharray="${arco} ${circ - arco}" stroke-dashoffset="${-acumulado}" transform="rotate(-90 20 20)"></circle>`;
+      acumulado += arco;
+      return svg;
+    }).join('');
+    return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 40 40">${fatias}</svg>`;
   }
 
   async function render() {
@@ -10451,12 +10471,13 @@ const kvEnquetes = (() => {
       return `
       <div class="prest-card" onclick="kvEnquetes.abrirDetalhe('${e.id}')" style="cursor:pointer;">
         <div class="prest-card-top">
-          <div style="width:100%;">
+          <div style="flex:1;min-width:0;">
             <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;">📊 ${e.titulo}</div>
             ${e.descricao ? `<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:4px;">${e.descricao}</div>` : ''}
             <div class="prest-info-row"><span>🗓 Até ${prazo}</span>${e.anonima ? ' <span>🕶 Anônima</span>' : ''}</div>
-            ${jaVotou ? _miniBarChartHtml(e) : `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Toque pra votar.</div>`}
+            ${jaVotou ? '' : `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Toque pra votar.</div>`}
           </div>
+          ${jaVotou ? `<div style="flex-shrink:0;">${_pieChartSvg(e, 40)}</div>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -10477,11 +10498,11 @@ const kvEnquetes = (() => {
       return `
       <div class="prest-card" onclick="kvEnquetes.abrirDetalhe('${e.id}')" style="cursor:pointer;opacity:0.9;">
         <div class="prest-card-top">
-          <div style="width:100%;">
+          <div style="flex:1;min-width:0;">
             <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;">📊 ${e.titulo}</div>
             <div class="prest-info-row"><span>🏁 Encerrada — prazo era ${prazo}</span></div>
-            ${_miniBarChartHtml(e)}
           </div>
+          <div style="flex-shrink:0;">${_pieChartSvg(e, 40)}</div>
         </div>
       </div>`;
     }).join('');
