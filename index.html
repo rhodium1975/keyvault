@@ -10681,7 +10681,9 @@ const kvEnquetes = (() => {
           </div>
         </div>`;
       }).join('');
-      if (!encerrada) {
+      if (_isEquipe()) {
+        html += `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">👁 Administração e porteiro acompanham o resultado, mas não participam da votação.</div>`;
+      } else if (!encerrada) {
         html += _botoesVotoHtml(e, meuVoto);
       } else if (meuVoto) {
         html += `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Seu voto: <strong style="color:var(--text);">${meuVoto.opcao}</strong>.</div>`;
@@ -10723,7 +10725,11 @@ const kvEnquetes = (() => {
           </div>`;
         }
       }
-      if (!encerrada) html += _botoesVotoHtml(e, meuVoto);
+      if (!encerrada && !_isEquipe()) {
+        html += _botoesVotoHtml(e, meuVoto);
+      } else if (!encerrada && _isEquipe()) {
+        html += `<div style="font-size:11px;color:var(--text-dim);margin-top:10px;">👁 Administração e porteiro acompanham o resultado, mas não participam da votação.</div>`;
+      }
     } else {
       html += `<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:10px;">Vote pra ver o resultado parcial.</div>`;
       html += _botoesVotoHtml(e, meuVoto);
@@ -10745,6 +10751,7 @@ const kvEnquetes = (() => {
   async function votar(enqueteId, opcao) {
     const user = firebase.auth().currentUser;
     if (!user) { mostrarNotif('⚠ Sessão expirada. Faça login de novo.', 'grey'); return; }
+    if (_isEquipe()) { mostrarNotif('⚠ Administração e porteiro não participam da votação.', 'grey'); return; }
     const e = enquetes.find(x => x.id === enqueteId);
     if (!e) return;
     if (e.status !== 'aberta') { mostrarNotif('⚠ Essa enquete já foi encerrada.', 'grey'); return; }
