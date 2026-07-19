@@ -4658,6 +4658,9 @@
         <a href="#" onclick="toggleMoradorPanel();return false;" style="color:var(--cyan);font-family:var(--font-display);font-size:11px;letter-spacing:1px;text-decoration:none;">SOU MORADOR — ENTRAR OU PRIMEIRO ACESSO</a>
       </div>
       <div style="margin-top:10px;text-align:center;">
+        <a href="#" onclick="togglePorteiroPanel();return false;" style="color:var(--amber);font-family:var(--font-display);font-size:11px;letter-spacing:1px;text-decoration:none;">SOU PORTEIRO — ENTRAR OU PRIMEIRO ACESSO</a>
+      </div>
+      <div style="margin-top:10px;text-align:center;">
         <a href="#" onclick="toggleSindicoCadastro();return false;" style="color:var(--amber);font-family:var(--font-display);font-size:11px;letter-spacing:1px;text-decoration:none;">SOU SÍNDICO — CADASTRAR MEU CONDOMÍNIO</a>
       </div>
     </div>
@@ -4682,6 +4685,28 @@
       <div id="moradorPanelErro" style="display:none;color:#ff5577;font-size:12px;margin-bottom:8px;"></div>
 
       <button type="button" id="moradorPanelBtn" onclick="executarAcaoMoradorPanel()" class="login-btn" style="width:100%;">ENTRAR</button>
+    </div>
+
+    <!-- ── Painel exclusivo de login/primeiro acesso do PORTEIRO (Firebase) ── -->
+    <div id="porteiroPanel" style="display:none;margin-top:16px;padding:16px;border-radius:10px;border:1px solid var(--amber);background:var(--bg3);">
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button type="button" onclick="setModoPorteiroPanel('login')" id="btnModoPorteiroLogin" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--amber);background:var(--amber);color:#000;font-family:var(--font-display);font-size:10px;letter-spacing:1px;cursor:pointer;">JÁ TENHO CONTA</button>
+        <button type="button" onclick="setModoPorteiroPanel('primeiro')" id="btnModoPorteiroPrimeiro" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--font-display);font-size:10px;letter-spacing:1px;cursor:pointer;">PRIMEIRO ACESSO</button>
+      </div>
+
+      <div id="porteiroLoginFields">
+        <input type="email" id="porteiroEmail" placeholder="E-mail" class="login-input" style="margin-bottom:8px;width:100%;">
+        <input type="password" id="porteiroSenha" placeholder="Senha" class="login-input" style="margin-bottom:8px;width:100%;">
+      </div>
+
+      <div id="porteiroPrimeiroFields" style="display:none;">
+        <input type="text" id="porteiroCodigo" placeholder="Código de convite" maxlength="6" class="login-input" style="margin-bottom:8px;width:100%;text-transform:uppercase;">
+        <input type="password" id="porteiroNovaSenha" placeholder="Defina uma senha (mín. 6 caracteres)" class="login-input" style="margin-bottom:8px;width:100%;">
+      </div>
+
+      <div id="porteiroPanelErro" style="display:none;color:#ff5577;font-size:12px;margin-bottom:8px;"></div>
+
+      <button type="button" id="porteiroPanelBtn" onclick="executarAcaoPorteiroPanel()" class="login-btn" style="width:100%;background:var(--amber);border-color:var(--amber);color:#000;">ENTRAR</button>
     </div>
 
     <!-- ── Painel de cadastro do síndico (cria um condomínio novo) ── -->
@@ -10985,6 +11010,10 @@ const kvMoradores = (() => {
     const userSnap = await firebase.firestore().collection('usuarios').doc(cred.user.uid).get();
     if (!userSnap.exists) throw new Error('Login ok, mas sem cadastro vinculado.');
     const userData = userSnap.data();
+    if (userData.role !== 'morador') {
+      await firebase.auth().signOut();
+      throw new Error('Essa conta não é de morador. Use a entrada correta pro seu perfil.');
+    }
     const condominioId = userData.condominioId;
 
     // Tenta encontrar o documento do morador no condomínio correto
@@ -11092,7 +11121,34 @@ const kvPorteiros = (() => {
     return { uid: cred.user.uid, nome: dados.nome, porteiroId: doc.id, condominioId };
   }
 
-  return { cadastrarPorteiro, listarPorteiros, excluirPorteiro, primeiroAcesso, colPorteiros };
+  // Login do dia a dia (diferente do primeiroAcesso, que só roda uma vez
+  // pra ativar o convite). Faltava essa função — sem ela, o porteiro não
+  // tinha como logar de novo depois da primeira ativação.
+  async function loginPorteiro(email, senha) {
+    const cred = await firebase.auth().signInWithEmailAndPassword(email, senha);
+
+    const userSnap = await firebase.firestore().collection('usuarios').doc(cred.user.uid).get();
+    if (!userSnap.exists) throw new Error('Login ok, mas sem cadastro vinculado.');
+    const userData = userSnap.data();
+    if (userData.role !== 'user') {
+      await firebase.auth().signOut();
+      throw new Error('Essa conta não é de porteiro. Use a entrada correta pro seu perfil.');
+    }
+    const condominioId = userData.condominioId;
+
+    const snap = await firebase.firestore()
+      .collection('condominios').doc(condominioId)
+      .collection('porteiros').where('uid', '==', cred.user.uid).limit(1).get();
+
+    if (!snap.empty) {
+      const doc = snap.docs[0];
+      const dados = doc.data();
+      return { uid: cred.user.uid, nome: dados.nome, porteiroId: doc.id, condominioId };
+    }
+    return { uid: cred.user.uid, nome: userData.nome, porteiroId: cred.user.uid, condominioId };
+  }
+
+  return { cadastrarPorteiro, listarPorteiros, excluirPorteiro, primeiroAcesso, loginPorteiro, colPorteiros };
 })();
 
 // ── ONBOARDING (tutorial do síndico) ──
@@ -11678,6 +11734,7 @@ function entrarComoMorador({ nome, apto, moradorId, condominioId }) {
   });
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('moradorPanel').style.display = 'none';
+  const pp = document.getElementById('porteiroPanel'); if (pp) pp.style.display = 'none';
   if (typeof atualizarSessionBadge === 'function') atualizarSessionBadge();
   if (typeof aplicarRestricoesPerfil === 'function') aplicarRestricoesPerfil();
   document.dispatchEvent(new CustomEvent('kv-login', { detail: { role: 'morador', username: moradorId, displayName: nome, apto: apto, condominioId: condominioId } }));
@@ -11691,7 +11748,8 @@ function entrarComoPorteiro({ nome, porteiroId, condominioId }) {
     condominioId: condominioId,
   });
   document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('moradorPanel').style.display = 'none';
+  document.getElementById('porteiroPanel').style.display = 'none';
+  const mp = document.getElementById('moradorPanel'); if (mp) mp.style.display = 'none';
   if (typeof atualizarSessionBadge === 'function') atualizarSessionBadge();
   if (typeof aplicarRestricoesPerfil === 'function') aplicarRestricoesPerfil();
   document.dispatchEvent(new CustomEvent('kv-login', { detail: { role: 'user', username: porteiroId, displayName: nome, condominioId: condominioId } }));
@@ -12555,16 +12613,53 @@ async function executarAcaoMoradorPanel() {
       const senha  = document.getElementById('moradorNovaSenha').value;
       if (!codigo || !senha) throw new Error('Preencha o código e a nova senha.');
       if (senha.length < 6) throw new Error('A senha precisa ter ao menos 6 caracteres.');
-      try {
-        const dados = await kvMoradores.primeiroAcesso(codigo, senha);
-        entrarComoMorador(dados);
-      } catch (errMorador) {
-        if (errMorador.message !== 'Código inválido ou já utilizado.') throw errMorador;
-        // Não era um código de morador — tenta como convite de porteiro
-        // antes de desistir e mostrar erro.
-        const dados = await kvPorteiros.primeiroAcesso(codigo, senha);
-        entrarComoPorteiro(dados);
-      }
+      const dados = await kvMoradores.primeiroAcesso(codigo, senha);
+      entrarComoMorador(dados);
+    }
+  } catch (e) {
+    erroEl.textContent = e.message;
+    erroEl.style.display = 'block';
+  }
+}
+
+// ── Painel exclusivo do PORTEIRO (login do dia a dia + primeiro acesso) ──
+// Antes, o porteiro precisava usar o painel "SOU MORADOR" (que tentava
+// adivinhar o tipo de código) — e não tinha jeito nenhum de logar de
+// novo depois da primeira ativação, porque não existia loginPorteiro().
+// Agora ele tem entrada própria, sem ambiguidade.
+let _modoPorteiroPanel = 'login';
+function togglePorteiroPanel() {
+  const panel = document.getElementById('porteiroPanel');
+  panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
+}
+function setModoPorteiroPanel(modo) {
+  _modoPorteiroPanel = modo;
+  document.getElementById('porteiroLoginFields').style.display    = (modo === 'login')    ? 'block' : 'none';
+  document.getElementById('porteiroPrimeiroFields').style.display = (modo === 'primeiro') ? 'block' : 'none';
+  document.getElementById('porteiroPanelBtn').textContent = (modo === 'login') ? 'ENTRAR' : 'CRIAR ACESSO';
+  document.getElementById('btnModoPorteiroLogin').style.background    = (modo === 'login')    ? 'var(--amber)' : 'transparent';
+  document.getElementById('btnModoPorteiroLogin').style.color         = (modo === 'login')    ? '#000' : 'var(--text-dim)';
+  document.getElementById('btnModoPorteiroPrimeiro').style.background = (modo === 'primeiro') ? 'var(--amber)' : 'transparent';
+  document.getElementById('btnModoPorteiroPrimeiro').style.color      = (modo === 'primeiro') ? '#000' : 'var(--text-dim)';
+  document.getElementById('porteiroPanelErro').style.display = 'none';
+}
+async function executarAcaoPorteiroPanel() {
+  const erroEl = document.getElementById('porteiroPanelErro');
+  erroEl.style.display = 'none';
+  try {
+    if (_modoPorteiroPanel === 'login') {
+      const email = document.getElementById('porteiroEmail').value.trim();
+      const senha = document.getElementById('porteiroSenha').value;
+      if (!email || !senha) throw new Error('Preencha e-mail e senha.');
+      const dados = await kvPorteiros.loginPorteiro(email, senha);
+      entrarComoPorteiro(dados);
+    } else {
+      const codigo = document.getElementById('porteiroCodigo').value;
+      const senha  = document.getElementById('porteiroNovaSenha').value;
+      if (!codigo || !senha) throw new Error('Preencha o código e a nova senha.');
+      if (senha.length < 6) throw new Error('A senha precisa ter ao menos 6 caracteres.');
+      const dados = await kvPorteiros.primeiroAcesso(codigo, senha);
+      entrarComoPorteiro(dados);
     }
   } catch (e) {
     erroEl.textContent = e.message;
@@ -12744,7 +12839,7 @@ async function adminCadastrarPorteiroFirebase() {
     const nomeCondominio = (window.KV_AUTH && KV_AUTH.getCondominioNome) ? KV_AUTH.getCondominioNome() : 'seu condomínio';
     const foneDigits = telefone.replace(/\D/g, '');
     const foneComDDI = foneDigits.length <= 11 ? '55' + foneDigits : foneDigits;
-    const mensagem = `Olá, ${nome}! Você foi cadastrado(a) como porteiro no KeyVault (app do ${nomeCondominio}).%0A%0A📲 Acesse: ${linkApp}%0A🔑 Seu código de convite: *${codigoConvite}*%0A%0AUse esse código no primeiro acesso pra criar sua senha.`;
+    const mensagem = `Olá, ${nome}! Você foi cadastrado(a) como porteiro no KeyVault (app do ${nomeCondominio}).%0A%0A📲 Acesse: ${linkApp}%0A🔑 Seu código de convite: *${codigoConvite}*%0A%0AClique em "SOU PORTEIRO" na tela inicial e use esse código no primeiro acesso pra criar sua senha.`;
     const linkWhatsApp = `https://wa.me/${foneComDDI}?text=${mensagem}`;
 
     resEl.style.display = 'block';
