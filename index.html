@@ -3328,14 +3328,19 @@
         <label class="form-label">Descrição (opcional)</label>
         <input class="form-input" id="enqDescricao" placeholder="Contexto, orçamento, detalhes..." maxlength="300">
         <label class="form-label">Opções de resposta <span style="color:var(--red)">*</span></label>
-        <div id="enqOpcoesWrap">
-          <input class="form-input enq-opcao-input" placeholder="Opção 1 (ex.: Sim)" maxlength="60">
-          <input class="form-input enq-opcao-input" placeholder="Opção 2 (ex.: Não)" maxlength="60">
+        <div id="enqOpcoesWrap" style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input class="form-input enq-opcao-input" style="flex:1;min-width:110px;" placeholder="Opção 1 (ex.: Sim)" maxlength="60">
+          <input class="form-input enq-opcao-input" style="flex:1;min-width:110px;" placeholder="Opção 2 (ex.: Não)" maxlength="60">
         </div>
-        <button type="button" class="prest-add-btn" onclick="kvEnquetes.addOpcaoInput()" style="margin:2px 0 14px;">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Adicionar opção
-        </button>
+        <div style="display:flex;gap:8px;margin:8px 0 14px;flex-wrap:wrap;">
+          <button type="button" class="prest-add-btn" onclick="kvEnquetes.preencherSimNao()">
+            ⚡ Sim / Não
+          </button>
+          <button type="button" class="prest-add-btn" onclick="kvEnquetes.addOpcaoInput()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Adicionar opção
+          </button>
+        </div>
         <label class="form-label">Data limite pra votar <span style="color:var(--red)">*</span></label>
         <input class="form-input" id="enqDataLimite" type="date">
         <div class="enc-faltante-toggle" id="enqAnonimaToggle" onclick="kvEnquetes.toggleAnonima()" style="margin-top:14px;">
@@ -10381,6 +10386,19 @@ const kvEnquetes = (() => {
     if (arrow) arrow.classList.toggle('open', historicoAberto);
   }
 
+  // Linha de botões de voto — usada tanto na enquete anônima quanto na
+  // normal. Mostra a opção atual do morador desabilitada (✓) e as
+  // outras clicáveis, permitindo trocar o voto livremente até a
+  // enquete fechar.
+  function _botoesVotoHtml(e, meuVotoAtual) {
+    const label = meuVotoAtual ? 'Trocar meu voto:' : 'Vote pra participar:';
+    const botoes = e.opcoes.map(o => {
+      const selecionado = meuVotoAtual && meuVotoAtual.opcao === o;
+      return `<button class="prest-btn-confirm" style="width:100%;margin-bottom:8px;${selecionado ? 'opacity:0.55;cursor:default;' : ''}" ${selecionado ? 'disabled' : `onclick="kvEnquetes.votar('${e.id}','${o.replace(/'/g,"\\'")}')"`}>${o}${selecionado ? ' ✓' : ''}</button>`;
+    }).join('');
+    return `<div style="font-size:11.5px;color:var(--text-dim);margin:10px 0;">${label}</div>${botoes}`;
+  }
+
   // Gráfico compacto de % direto no card da lista (sem precisar abrir o
   // detalhe) — usa sempre o contador agregado (só números), nunca os
   // votos individuais, então é seguro mostrar mesmo em enquete anônima.
@@ -10476,8 +10494,8 @@ const kvEnquetes = (() => {
     document.getElementById('enqDescricao').value = '';
     document.getElementById('enqDataLimite').value = '';
     document.getElementById('enqOpcoesWrap').innerHTML = `
-      <input class="form-input enq-opcao-input" placeholder="Opção 1 (ex.: Sim)" maxlength="60">
-      <input class="form-input enq-opcao-input" placeholder="Opção 2 (ex.: Não)" maxlength="60">`;
+      <input class="form-input enq-opcao-input" style="flex:1;min-width:110px;" placeholder="Opção 1 (ex.: Sim)" maxlength="60">
+      <input class="form-input enq-opcao-input" style="flex:1;min-width:110px;" placeholder="Opção 2 (ex.: Não)" maxlength="60">`;
     opcoesCount = 2;
     anonimaAtiva = false;
     document.getElementById('enqAnonimaToggle').classList.remove('ativo');
@@ -10486,12 +10504,24 @@ const kvEnquetes = (() => {
   function fecharModalCriar() {
     document.getElementById('enqCriarOverlay').classList.remove('open');
   }
+  // Atalho: preenche as duas primeiras opções com "Sim" / "Não" de uma
+  // vez, lado a lado — pro caso mais comum de enquete (aprova ou não),
+  // sem precisar digitar. Zera qualquer outra opção extra que já tenha
+  // sido adicionada.
+  function preencherSimNao() {
+    const wrap = document.getElementById('enqOpcoesWrap');
+    wrap.innerHTML = `
+      <input class="form-input enq-opcao-input" style="flex:1;min-width:110px;" placeholder="Opção 1 (ex.: Sim)" maxlength="60" value="Sim">
+      <input class="form-input enq-opcao-input" style="flex:1;min-width:110px;" placeholder="Opção 2 (ex.: Não)" maxlength="60" value="Não">`;
+    opcoesCount = 2;
+  }
   function addOpcaoInput() {
     if (opcoesCount >= 8) return;
     opcoesCount++;
     const wrap = document.getElementById('enqOpcoesWrap');
     const input = document.createElement('input');
     input.className = 'form-input enq-opcao-input';
+    input.style.cssText = 'flex:1;min-width:110px;';
     input.placeholder = `Opção ${opcoesCount}`;
     input.maxLength = 60;
     wrap.appendChild(input);
@@ -10630,13 +10660,10 @@ const kvEnquetes = (() => {
           </div>
         </div>`;
       }).join('');
-      if (!meuVoto && !encerrada) {
-        html += `<div style="font-size:11.5px;color:var(--text-dim);margin:10px 0;">Vote pra participar:</div>`;
-        html += e.opcoes.map(o => `
-          <button class="prest-btn-confirm" style="width:100%;margin-bottom:8px;" onclick="kvEnquetes.votar('${e.id}','${o.replace(/'/g,"\\'")}')">${o}</button>
-        `).join('');
+      if (!encerrada) {
+        html += _botoesVotoHtml(e, meuVoto);
       } else if (meuVoto) {
-        html += `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Seu voto já foi registrado.</div>`;
+        html += `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Seu voto: <strong style="color:var(--text);">${meuVoto.opcao}</strong>.</div>`;
       } else {
         html += `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Enquete encerrada — você não votou.</div>`;
       }
@@ -10675,11 +10702,10 @@ const kvEnquetes = (() => {
           </div>`;
         }
       }
+      if (!encerrada) html += _botoesVotoHtml(e, meuVoto);
     } else {
       html += `<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:10px;">Vote pra ver o resultado parcial.</div>`;
-      html += e.opcoes.map(o => `
-        <button class="prest-btn-confirm" style="width:100%;margin-bottom:8px;" onclick="kvEnquetes.votar('${e.id}','${o.replace(/'/g,"\\'")}')">${o}</button>
-      `).join('');
+      html += _botoesVotoHtml(e, meuVoto);
     }
     body.innerHTML = html;
 
@@ -10700,6 +10726,7 @@ const kvEnquetes = (() => {
     if (!user) { mostrarNotif('⚠ Sessão expirada. Faça login de novo.', 'grey'); return; }
     const e = enquetes.find(x => x.id === enqueteId);
     if (!e) return;
+    if (e.status !== 'aberta') { mostrarNotif('⚠ Essa enquete já foi encerrada.', 'grey'); return; }
     const anonima = !!e.anonima;
     const dados = { opcao, ts: firebase.firestore.FieldValue.serverTimestamp() };
     if (!anonima) {
@@ -10711,24 +10738,37 @@ const kvEnquetes = (() => {
     }
     const idxOpcao = (e.opcoes || []).indexOf(opcao);
     try {
-      // Batch: grava o voto E incrementa o contador agregado da enquete
-      // na mesma operação atômica. É esse contador (só números, sem
-      // nome/apto) que permite mostrar resultado em % mesmo em enquete
-      // anônima, sem expor o voto individual de ninguém.
-      const batch = firebase.firestore().batch();
-      batch.set(_colVotos(enqueteId).doc(user.uid), dados); // create-only pelas regras — não deixa votar 2x
-      if (idxOpcao > -1) {
-        const incremento = {};
-        incremento['agregado.opt' + idxOpcao] = firebase.firestore.FieldValue.increment(1);
-        incremento['agregado.total'] = firebase.firestore.FieldValue.increment(1);
-        batch.update(_colEnquetes().doc(enqueteId), incremento);
+      const votoRef = _colVotos(enqueteId).doc(user.uid);
+      // Lê o voto atual (se existir) — a leitura do PRÓPRIO voto é
+      // sempre permitida pelas regras, mesmo em enquete anônima. É a
+      // partir dela que sabemos se é um voto novo ou uma TROCA de voto,
+      // e qual opção antiga precisa "sair" do contador agregado.
+      const votoAtualSnap = await votoRef.get();
+      const votoAtual = votoAtualSnap.exists ? votoAtualSnap.data() : null;
+      if (votoAtual && votoAtual.opcao === opcao) {
+        mostrarNotif('Esse já é o seu voto atual.', 'grey');
+        return;
       }
+      const idxAntigo = votoAtual ? (e.opcoes || []).indexOf(votoAtual.opcao) : -1;
+
+      // Batch: grava/atualiza o voto E ajusta o contador agregado da
+      // enquete na mesma operação atômica. Numa troca de voto, o total
+      // geral não muda (a pessoa continua sendo 1 voto só) — só desloca
+      // a contagem da opção antiga pra opção nova.
+      const batch = firebase.firestore().batch();
+      batch.set(votoRef, dados); // set (não create-only) — permite trocar o voto até a enquete fechar
+      const incremento = {};
+      if (idxOpcao > -1) incremento['agregado.opt' + idxOpcao] = firebase.firestore.FieldValue.increment(1);
+      if (idxAntigo > -1 && idxAntigo !== idxOpcao) incremento['agregado.opt' + idxAntigo] = firebase.firestore.FieldValue.increment(-1);
+      if (!votoAtual) incremento['agregado.total'] = firebase.firestore.FieldValue.increment(1);
+      if (Object.keys(incremento).length) batch.update(_colEnquetes().doc(enqueteId), incremento);
+
       await batch.commit();
-      mostrarNotif('✅ Voto registrado!');
+      mostrarNotif(votoAtual ? '✅ Voto atualizado!' : '✅ Voto registrado!');
       abrirDetalhe(enqueteId); // recarrega já mostrando o resultado
     } catch(err) {
       if (err.code === 'permission-denied') {
-        mostrarNotif('⚠ Você já votou nessa enquete.', 'grey');
+        mostrarNotif('⚠ Não foi possível votar — a enquete pode ter sido encerrada.', 'grey');
         abrirDetalhe(enqueteId);
       } else {
         mostrarNotif('⚠ Erro ao votar: ' + err.message, 'grey');
@@ -10749,7 +10789,7 @@ const kvEnquetes = (() => {
   }
 
   return {
-    toggleList, toggleHistorico, abrirModalCriar, fecharModalCriar, addOpcaoInput,
+    toggleList, toggleHistorico, abrirModalCriar, fecharModalCriar, addOpcaoInput, preencherSimNao,
     toggleAnonima, salvarEnquete, abrirDetalhe, fecharDetalhe, votar, encerrarAgora,
   };
 })();
