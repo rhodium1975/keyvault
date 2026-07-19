@@ -10307,6 +10307,13 @@ const kvEnquetes = (() => {
     const role = window.KV_AUTH ? KV_AUTH.getRole() : null;
     return role === 'sindico' || role === 'user';
   }
+  // Só síndico cria/encerra enquete. Porteiro (role 'user') acompanha o
+  // resultado igual à equipe (_isEquipe), mas não interage — não cria,
+  // não encerra, não vota.
+  function _isSindico() {
+    const role = window.KV_AUTH ? KV_AUTH.getRole() : null;
+    return role === 'sindico';
+  }
   function _colEnquetes() {
     const condominioId = _condominioId();
     if (!condominioId) throw new Error('Nenhum condomínio ativo na sessão.');
@@ -10343,7 +10350,7 @@ const kvEnquetes = (() => {
   // próxima vez que a equipe tiver o app aberto (mesmo princípio dos
   // outros módulos: sem Cloud Functions, sem custo).
   async function _arquivarVencidas() {
-    if (!_isEquipe()) return;
+    if (!_isSindico()) return;
     const vencidas = enquetes.filter(e => e.status === 'aberta' && e.dataLimite && e.dataLimite < hoje() && !_arquivandoIds.has(e.id));
     for (const e of vencidas) {
       _arquivandoIds.add(e.id);
@@ -10365,7 +10372,7 @@ const kvEnquetes = (() => {
     const abertas = enquetes.filter(e => e.status === 'aberta');
     if (badge) badge.textContent = abertas.length;
     const btnCriar = document.getElementById('enqBtnCriar');
-    if (btnCriar) btnCriar.style.display = _isEquipe() ? 'flex' : 'none';
+    if (btnCriar) btnCriar.style.display = _isSindico() ? 'flex' : 'none';
   }
 
   function toggleList(event) {
@@ -10510,7 +10517,7 @@ const kvEnquetes = (() => {
 
   // ── CRIAR ENQUETE ──
   function abrirModalCriar() {
-    if (!_isEquipe()) return;
+    if (!_isSindico()) return;
     document.getElementById('enqTitulo').value = '';
     document.getElementById('enqDescricao').value = '';
     document.getElementById('enqDataLimite').value = '';
@@ -10692,7 +10699,7 @@ const kvEnquetes = (() => {
       }
       body.innerHTML = html;
       let footerHtmlAnon = `<button class="prest-btn-cancel" onclick="kvEnquetes.fecharDetalhe()" style="flex:1;">Fechar</button>`;
-      if (_isEquipe() && !encerrada) {
+      if (_isSindico() && !encerrada) {
         footerHtmlAnon += `<button class="prest-btn-confirm" style="flex:1;" onclick="kvEnquetes.encerrarAgora('${e.id}')">🏁 Encerrar agora</button>`;
       }
       footer.innerHTML = footerHtmlAnon;
@@ -10737,7 +10744,7 @@ const kvEnquetes = (() => {
     body.innerHTML = html;
 
     let footerHtml = `<button class="prest-btn-cancel" onclick="kvEnquetes.fecharDetalhe()" style="flex:1;">Fechar</button>`;
-    if (_isEquipe() && !encerrada) {
+    if (_isSindico() && !encerrada) {
       footerHtml += `<button class="prest-btn-confirm" style="flex:1;" onclick="kvEnquetes.encerrarAgora('${e.id}')">🏁 Encerrar agora</button>`;
     }
     footer.innerHTML = footerHtml;
@@ -10805,7 +10812,7 @@ const kvEnquetes = (() => {
   }
 
   async function encerrarAgora(id) {
-    if (!_isEquipe()) return;
+    if (!_isSindico()) return;
     if (!confirm('Encerrar essa enquete agora? Ninguém mais poderá votar.')) return;
     try {
       await _colEnquetes().doc(id).set({ status: 'encerrada' }, { merge: true });
