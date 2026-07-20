@@ -3029,6 +3029,17 @@
     </div>
   </div>
 
+  <!-- AVISO DE E-MAIL NÃO VERIFICADO -->
+  <div id="emailVerifBanner" style="display:none;margin:10px 14px 0;padding:10px 14px;border-radius:10px;border:1px solid var(--amber);background:rgba(255,171,0,0.1);align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <div style="font-size:12px;color:var(--amber);">
+      ✉️ Confirme seu e-mail (<span id="emailVerifEndereco"></span>) — é ele que usamos pra recuperar sua senha se você esquecer. Se não for o seu e-mail correto, avise a administração.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button type="button" onclick="reenviarVerificacaoEmail()" id="emailVerifBtn" style="font-family:var(--font-display);font-size:9px;letter-spacing:1px;padding:6px 10px;border-radius:6px;border:1px solid var(--amber);background:transparent;color:var(--amber);cursor:pointer;white-space:nowrap;">REENVIAR E-MAIL</button>
+      <span onclick="dispensarAvisoVerificacaoEmail()" title="Já confirmei / dispensar por agora" style="cursor:pointer;color:var(--text-dim);font-size:16px;line-height:1;padding:2px 4px;">✕</span>
+    </div>
+  </div>
+
   <!-- STATS -->
   <div class="stats-row" id="stats">
       <div class="stat-box total"><div class="stat-num">9</div><div class="stat-lbl">Total</div></div>
@@ -4679,7 +4690,8 @@
 
       <div id="moradorPrimeiroFields" style="display:none;">
         <input type="text" id="moradorCodigo" placeholder="Código de convite" maxlength="6" class="login-input" style="margin-bottom:8px;width:100%;text-transform:uppercase;">
-        <input type="password" id="moradorNovaSenha" placeholder="Defina uma senha (mín. 6 caracteres)" class="login-input" style="margin-bottom:8px;width:100%;">
+        <input type="email" id="moradorNovoEmail" placeholder="Seu e-mail" class="login-input" style="margin-bottom:8px;width:100%;" autocomplete="username">
+        <input type="password" id="moradorNovaSenha" placeholder="Defina uma senha (mín. 6 caracteres)" class="login-input" style="margin-bottom:8px;width:100%;" autocomplete="new-password">
       </div>
 
       <div id="moradorPanelErro" style="display:none;color:#ff5577;font-size:12px;margin-bottom:8px;"></div>
@@ -4701,7 +4713,8 @@
 
       <div id="porteiroPrimeiroFields" style="display:none;">
         <input type="text" id="porteiroCodigo" placeholder="Código de convite" maxlength="6" class="login-input" style="margin-bottom:8px;width:100%;text-transform:uppercase;">
-        <input type="password" id="porteiroNovaSenha" placeholder="Defina uma senha (mín. 6 caracteres)" class="login-input" style="margin-bottom:8px;width:100%;">
+        <input type="email" id="porteiroNovoEmail" placeholder="Seu e-mail" class="login-input" style="margin-bottom:8px;width:100%;" autocomplete="username">
+        <input type="password" id="porteiroNovaSenha" placeholder="Defina uma senha (mín. 6 caracteres)" class="login-input" style="margin-bottom:8px;width:100%;" autocomplete="new-password">
       </div>
 
       <div id="porteiroPanelErro" style="display:none;color:#ff5577;font-size:12px;margin-bottom:8px;"></div>
@@ -4978,6 +4991,48 @@
   }
   window.atualizarSessionBadge = atualizarSessionBadge;
 
+  // ── AVISO DE E-MAIL NÃO VERIFICADO ──
+  // Dispara sempre que alguém loga (mesmo padrão de 'kv-login' já usado
+  // no resto do app). Recarrega o usuário do Firebase Auth pra pegar o
+  // status atualizado de emailVerified (o SDK não atualiza sozinho depois
+  // que a pessoa clica no link do e-mail).
+  async function verificarStatusEmail() {
+    const user = firebase.auth().currentUser;
+    const banner = document.getElementById('emailVerifBanner');
+    if (!user || !banner) return;
+    try { await user.reload(); } catch (e) { /* offline ou sessão expirando — ignora */ }
+    const jaDispensouNestaSessao = sessionStorage.getItem('kv_email_verif_dispensado_' + user.uid) === '1';
+    if (!firebase.auth().currentUser || firebase.auth().currentUser.emailVerified || jaDispensouNestaSessao) {
+      banner.style.display = 'none';
+      return;
+    }
+    document.getElementById('emailVerifEndereco').textContent = user.email || '';
+    banner.style.display = 'flex';
+  }
+  window.reenviarVerificacaoEmail = async function() {
+    const btn = document.getElementById('emailVerifBtn');
+    const user = firebase.auth().currentUser;
+    if (!user) return;
+    const txtOriginal = btn.textContent;
+    btn.disabled = true; btn.textContent = 'ENVIANDO...';
+    try {
+      await user.sendEmailVerification();
+      btn.textContent = 'ENVIADO ✓';
+      setTimeout(() => { btn.disabled = false; btn.textContent = txtOriginal; }, 4000);
+    } catch (e) {
+      btn.disabled = false; btn.textContent = txtOriginal;
+      alert('Não foi possível enviar agora: ' + e.message);
+    }
+  };
+  window.dispensarAvisoVerificacaoEmail = function() {
+    const user = firebase.auth().currentUser;
+    if (user) sessionStorage.setItem('kv_email_verif_dispensado_' + user.uid, '1');
+    const banner = document.getElementById('emailVerifBanner');
+    if (banner) banner.style.display = 'none';
+  };
+  document.addEventListener('kv-login', function() { setTimeout(verificarStatusEmail, 800); });
+
+
   // ── MENU DE SESSÃO ──
   window.abrirMenuSessao = function() {
     const isAdmin = KV_AUTH.isAdmin();
@@ -5121,7 +5176,6 @@
           <input type="text" id="admMoradorNome" placeholder="Nome do morador" class="login-input" style="width:100%;">
           <input type="text" id="admMoradorApto" placeholder="Apartamento" class="login-input" style="width:100%;">
           <input type="text" id="admMoradorBloco" placeholder="Bloco (opcional)" class="login-input" style="width:100%;">
-          <input type="email" id="admMoradorEmail" placeholder="E-mail" class="login-input" style="width:100%;">
           <input type="tel" id="admMoradorTelefone" placeholder="Telefone com DDD (ex: 11987654321)" class="login-input" style="width:100%;" oninput="mascararCelular(this)" maxlength="15">
           <button type="button" onclick="adminCadastrarMoradorFirebase()" class="login-btn" style="width:100%;">+ CADASTRAR MORADOR</button>
           <div id="admMoradorResultado" style="display:none;font-size:12px;font-family:var(--font-display);letter-spacing:0.5px;padding:8px;border-radius:8px;"></div>
@@ -5136,7 +5190,6 @@
         <div class="usermgmt-section-title">➕ Convidar novo porteiro</div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
           <input type="text" id="admPorteiroNome" placeholder="Nome do porteiro" class="login-input" style="width:100%;">
-          <input type="email" id="admPorteiroEmail" placeholder="E-mail" class="login-input" style="width:100%;">
           <input type="tel" id="admPorteiroTelefone" placeholder="Telefone com DDD (ex: 11987654321)" class="login-input" style="width:100%;" oninput="mascararCelular(this)" maxlength="15">
           <button type="button" onclick="adminCadastrarPorteiroFirebase()" class="login-btn" style="width:100%;">+ CADASTRAR PORTEIRO</button>
           <div id="admPorteiroResultado" style="display:none;font-size:12px;font-family:var(--font-display);letter-spacing:0.5px;padding:8px;border-radius:8px;"></div>
@@ -10949,13 +11002,16 @@ const kvMoradores = (() => {
     return codigo;
   }
 
-  async function cadastrarMorador({ nome, apto, bloco, email, telefone }) {
-    if (!nome || !apto || !email) throw new Error('Nome, apto e e-mail são obrigatórios.');
+  async function cadastrarMorador({ nome, apto, bloco, telefone }) {
+    if (!nome || !apto) throw new Error('Nome e apto são obrigatórios.');
     if (!telefone) throw new Error('Telefone é obrigatório.');
     const codigoConvite = gerarCodigoConvite();
     const ref = await colMoradores().add({
-      nome, apto, bloco: bloco || '', email: email.trim().toLowerCase(),
+      nome, apto, bloco: bloco || '',
       telefone: telefone.trim(),
+      // "email" não é mais preenchido aqui pelo síndico — o próprio
+      // morador digita o dele no primeiro acesso (evita conta presa a um
+      // e-mail digitado errado por outra pessoa, sem chance de recuperação).
       codigoConvite,
       uid: null,
       status: 'convidado',
@@ -10973,7 +11029,10 @@ const kvMoradores = (() => {
     await colMoradores().doc(id).delete();
   }
 
-  async function primeiroAcesso(codigoConvite, senha) {
+  async function primeiroAcesso(codigoConvite, email, senha) {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Digite um e-mail válido.');
+    const emailNorm = email.trim().toLowerCase();
+
     const snap = await colMoradoresTodosCondominios()
       .where('codigoConvite', '==', codigoConvite.toUpperCase().trim())
       .where('status', '==', 'convidado')
@@ -10985,17 +11044,23 @@ const kvMoradores = (() => {
     const dados = doc.data();
     const condominioId = doc.ref.parent.parent.id;
 
-    const cred = await firebase.auth().createUserWithEmailAndPassword(dados.email, senha);
+    // O e-mail agora é o que a PRÓPRIA pessoa digitou aqui — não mais o
+    // que o síndico digitou no convite (que nem existe mais nesse
+    // documento). É esse e-mail que vira a conta no Firebase Auth, então
+    // é a pessoa mesma quem garante que está certo.
+    const cred = await firebase.auth().createUserWithEmailAndPassword(emailNorm, senha);
+    try { await cred.user.sendEmailVerification(); } catch (errVerif) { console.warn('Não foi possível enviar e-mail de verificação:', errVerif.message); }
 
     await doc.ref.update({
       uid: cred.user.uid,
+      email: emailNorm,
       status: 'ativo',
       ativadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
     // Espelho em usuarios/{uid}, para o login padrão (KV_TENANT.login) reconhecer este morador depois.
     await firebase.firestore().collection('usuarios').doc(cred.user.uid).set({
-      condominioId, role: 'morador', nome: dados.nome, email: dados.email,
+      condominioId, role: 'morador', nome: dados.nome, email: emailNorm,
       apto: dados.apto, bloco: dados.bloco || '',
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
@@ -11071,12 +11136,14 @@ const kvPorteiros = (() => {
     return codigo;
   }
 
-  async function cadastrarPorteiro({ nome, email, telefone }) {
-    if (!nome || !email) throw new Error('Nome e e-mail são obrigatórios.');
+  async function cadastrarPorteiro({ nome, telefone }) {
+    if (!nome) throw new Error('Nome é obrigatório.');
     if (!telefone) throw new Error('Telefone é obrigatório.');
     const codigoConvite = gerarCodigoConvite();
     const ref = await colPorteiros().add({
-      nome, email: email.trim().toLowerCase(), telefone: telefone.trim(),
+      nome, telefone: telefone.trim(),
+      // "email" não é mais preenchido aqui pelo síndico — o próprio
+      // porteiro digita o dele no primeiro acesso.
       codigoConvite, uid: null, status: 'convidado',
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
@@ -11092,7 +11159,10 @@ const kvPorteiros = (() => {
     await colPorteiros().doc(id).delete();
   }
 
-  async function primeiroAcesso(codigoConvite, senha) {
+  async function primeiroAcesso(codigoConvite, email, senha) {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Digite um e-mail válido.');
+    const emailNorm = email.trim().toLowerCase();
+
     const snap = await colPorteirosTodosCondominios()
       .where('codigoConvite', '==', codigoConvite.toUpperCase().trim())
       .where('status', '==', 'convidado')
@@ -11104,17 +11174,19 @@ const kvPorteiros = (() => {
     const dados = doc.data();
     const condominioId = doc.ref.parent.parent.id;
 
-    const cred = await firebase.auth().createUserWithEmailAndPassword(dados.email, senha);
+    const cred = await firebase.auth().createUserWithEmailAndPassword(emailNorm, senha);
+    try { await cred.user.sendEmailVerification(); } catch (errVerif) { console.warn('Não foi possível enviar e-mail de verificação:', errVerif.message); }
 
     await doc.ref.update({
       uid: cred.user.uid,
+      email: emailNorm,
       status: 'ativo',
       ativadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
     // Espelho em usuarios/{uid} — é isso que dá acesso de verdade (role:'user').
     await firebase.firestore().collection('usuarios').doc(cred.user.uid).set({
-      condominioId, role: 'user', nome: dados.nome, email: dados.email,
+      condominioId, role: 'user', nome: dados.nome, email: emailNorm,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -11640,6 +11712,7 @@ const KV_TENANT = (() => {
     // 1) Cria o usuário no Firebase Authentication
     const cred = await firebase.auth().createUserWithEmailAndPassword(emailNorm, senha);
     const uid = cred.user.uid;
+    try { await cred.user.sendEmailVerification(); } catch (errVerif) { console.warn('Não foi possível enviar e-mail de verificação:', errVerif.message); }
 
     const db = firebase.firestore();
 
@@ -12610,10 +12683,11 @@ async function executarAcaoMoradorPanel() {
       entrarComoMorador(dados);
     } else {
       const codigo = document.getElementById('moradorCodigo').value;
+      const email  = document.getElementById('moradorNovoEmail').value.trim();
       const senha  = document.getElementById('moradorNovaSenha').value;
-      if (!codigo || !senha) throw new Error('Preencha o código e a nova senha.');
+      if (!codigo || !email || !senha) throw new Error('Preencha o código, seu e-mail e a nova senha.');
       if (senha.length < 6) throw new Error('A senha precisa ter ao menos 6 caracteres.');
-      const dados = await kvMoradores.primeiroAcesso(codigo, senha);
+      const dados = await kvMoradores.primeiroAcesso(codigo, email, senha);
       entrarComoMorador(dados);
     }
   } catch (e) {
@@ -12655,10 +12729,11 @@ async function executarAcaoPorteiroPanel() {
       entrarComoPorteiro(dados);
     } else {
       const codigo = document.getElementById('porteiroCodigo').value;
+      const email  = document.getElementById('porteiroNovoEmail').value.trim();
       const senha  = document.getElementById('porteiroNovaSenha').value;
-      if (!codigo || !senha) throw new Error('Preencha o código e a nova senha.');
+      if (!codigo || !email || !senha) throw new Error('Preencha o código, seu e-mail e a nova senha.');
       if (senha.length < 6) throw new Error('A senha precisa ter ao menos 6 caracteres.');
-      const dados = await kvPorteiros.primeiroAcesso(codigo, senha);
+      const dados = await kvPorteiros.primeiroAcesso(codigo, email, senha);
       entrarComoPorteiro(dados);
     }
   } catch (e) {
@@ -12765,7 +12840,6 @@ async function adminCadastrarMoradorFirebase() {
     const nome     = document.getElementById('admMoradorNome').value.trim();
     const apto     = document.getElementById('admMoradorApto').value.trim();
     const bloco    = document.getElementById('admMoradorBloco').value.trim();
-    const email    = document.getElementById('admMoradorEmail').value.trim();
     const telefone = document.getElementById('admMoradorTelefone').value.trim();
 
     if (!telefone) {
@@ -12781,14 +12855,14 @@ async function adminCadastrarMoradorFirebase() {
       return;
     }
 
-    const { codigoConvite } = await kvMoradores.cadastrarMorador({ nome, apto, bloco, email, telefone });
+    const { codigoConvite } = await kvMoradores.cadastrarMorador({ nome, apto, bloco, telefone });
 
     // Monta o link do WhatsApp com o convite já pronto: código de acesso + link do app.
     const linkApp = window.location.origin + window.location.pathname;
     const nomeCondominio = (window.KV_AUTH && KV_AUTH.getCondominioNome) ? KV_AUTH.getCondominioNome() : 'seu condomínio';
     const foneDigits = telefone.replace(/\D/g, '');
     const foneComDDI = foneDigits.length <= 11 ? '55' + foneDigits : foneDigits; // assume Brasil se vier só DDD+número
-    const mensagem = `Olá, ${nome}! Você foi cadastrado(a) no KeyVault (app do ${nomeCondominio}).%0A%0A📲 Acesse: ${linkApp}%0A🔑 Seu código de convite: *${codigoConvite}*%0A%0AUse esse código no primeiro acesso pra criar sua senha.`;
+    const mensagem = `Olá, ${nome}! Você foi cadastrado(a) no KeyVault (app do ${nomeCondominio}).%0A%0A📲 Acesse: ${linkApp}%0A🔑 Seu código de convite: *${codigoConvite}*%0A%0AClique em "SOU MORADOR" > "PRIMEIRO ACESSO", digite o código, o SEU e-mail e crie uma senha.`;
     const linkWhatsApp = `https://wa.me/${foneComDDI}?text=${mensagem}`;
 
     resEl.style.display = 'block';
@@ -12801,7 +12875,6 @@ async function adminCadastrarMoradorFirebase() {
     document.getElementById('admMoradorNome').value = '';
     document.getElementById('admMoradorApto').value = '';
     document.getElementById('admMoradorBloco').value = '';
-    document.getElementById('admMoradorEmail').value = '';
     document.getElementById('admMoradorTelefone').value = '';
   } catch (e) {
     resEl.style.display = 'block';
@@ -12817,7 +12890,6 @@ async function adminCadastrarPorteiroFirebase() {
   resEl.style.display = 'none';
   try {
     const nome     = document.getElementById('admPorteiroNome').value.trim();
-    const email    = document.getElementById('admPorteiroEmail').value.trim();
     const telefone = document.getElementById('admPorteiroTelefone').value.trim();
 
     if (!telefone) {
@@ -12833,13 +12905,13 @@ async function adminCadastrarPorteiroFirebase() {
       return;
     }
 
-    const { codigoConvite } = await kvPorteiros.cadastrarPorteiro({ nome, email, telefone });
+    const { codigoConvite } = await kvPorteiros.cadastrarPorteiro({ nome, telefone });
 
     const linkApp = window.location.origin + window.location.pathname;
     const nomeCondominio = (window.KV_AUTH && KV_AUTH.getCondominioNome) ? KV_AUTH.getCondominioNome() : 'seu condomínio';
     const foneDigits = telefone.replace(/\D/g, '');
     const foneComDDI = foneDigits.length <= 11 ? '55' + foneDigits : foneDigits;
-    const mensagem = `Olá, ${nome}! Você foi cadastrado(a) como porteiro no KeyVault (app do ${nomeCondominio}).%0A%0A📲 Acesse: ${linkApp}%0A🔑 Seu código de convite: *${codigoConvite}*%0A%0AClique em "SOU PORTEIRO" na tela inicial e use esse código no primeiro acesso pra criar sua senha.`;
+    const mensagem = `Olá, ${nome}! Você foi cadastrado(a) como porteiro no KeyVault (app do ${nomeCondominio}).%0A%0A📲 Acesse: ${linkApp}%0A🔑 Seu código de convite: *${codigoConvite}*%0A%0AClique em "SOU PORTEIRO" na tela inicial, vá em "PRIMEIRO ACESSO", digite o código, o SEU e-mail e crie uma senha.`;
     const linkWhatsApp = `https://wa.me/${foneComDDI}?text=${mensagem}`;
 
     resEl.style.display = 'block';
@@ -12850,7 +12922,6 @@ async function adminCadastrarPorteiroFirebase() {
       <a href="${linkWhatsApp}" target="_blank" rel="noopener" style="display:inline-block;background:#25D366;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-family:var(--font-display);letter-spacing:0.5px;">📲 Enviar convite pelo WhatsApp</a>`;
 
     document.getElementById('admPorteiroNome').value = '';
-    document.getElementById('admPorteiroEmail').value = '';
     document.getElementById('admPorteiroTelefone').value = '';
   } catch (e) {
     resEl.style.display = 'block';
