@@ -124,6 +124,12 @@
   .company-logo-wrap:hover { border-color: rgba(0,229,255,0.55); box-shadow: 0 0 12px var(--cyan-dim); }
   .company-logo-wrap.has-logo { border-style: solid; border-color: rgba(0,229,255,0.2); cursor: pointer; }
   .company-logo-wrap.has-logo:hover { border-color: rgba(0,229,255,0.55); box-shadow: 0 0 12px var(--cyan-dim); }
+  /* Visualização apenas (morador/porteiro): remove a "pista" visual de
+     que dá pra clicar, já que só o síndico pode trocar o logotipo. */
+  .company-logo-wrap.logo-view-only { cursor: default; }
+  .company-logo-wrap.logo-view-only:hover,
+  .company-logo-wrap.logo-view-only.has-logo:hover { border-color: rgba(0,229,255,0.2); box-shadow: none; }
+  .company-logo-wrap.logo-view-only .company-logo-remove { display: none !important; }
   .company-logo-placeholder {
     display: flex; flex-direction: column; align-items: center; gap: 5px;
     color: rgba(0,229,255,0.3); pointer-events: none; user-select: none;
@@ -5320,12 +5326,29 @@
     const btnRelatorio = document.getElementById('btnAbrirRelatorio');
     if (btnRelatorio) btnRelatorio.style.display = (KV_AUTH.getRole() === 'sindico' || KV_AUTH.getRole() === 'user') ? 'flex' : 'none';
 
-    // Logo upload — só admin
+    // Logo upload — só o síndico pode trocar. Antes, pra quem não é
+    // síndico, o clique era só desativado em silêncio (onclick = null),
+    // sem nenhuma explicação — parecia estar quebrado. Agora mostra um
+    // aviso claro do motivo, e tira a "pista visual" de que dá pra clicar.
     const logoWrap = document.getElementById('companyLogoWrap');
-    if (logoWrap && !isAdmin) {
-      logoWrap.onclick = null;
-      logoWrap.style.cursor = 'default';
-      logoWrap.title = '';
+    if (logoWrap) {
+      if (!isAdmin) {
+        logoWrap.classList.add('logo-view-only');
+        logoWrap.style.cursor = 'default';
+        logoWrap.title = 'Somente o síndico pode alterar o logotipo do condomínio';
+        logoWrap.onclick = function() {
+          if (typeof mostrarNotif === 'function') {
+            mostrarNotif('🔒 Somente o síndico pode alterar o logotipo do condomínio.', 'grey');
+          } else {
+            alert('Somente o síndico pode alterar o logotipo do condomínio.');
+          }
+        };
+      } else {
+        logoWrap.classList.remove('logo-view-only');
+        logoWrap.style.cursor = 'pointer';
+        logoWrap.title = 'Clique para escolher o logotipo da empresa';
+        logoWrap.onclick = () => document.getElementById('companyLogoInput').click();
+      }
     }
 
     // Gerenciar categorias — só admin
@@ -8267,12 +8290,38 @@
     const input   = document.getElementById('companyLogoInput');
     let _unsubLogo = null;
 
+    // Aplica o clique certo (abrir seletor de arquivo, ou aviso de
+    // "somente síndico") de acordo com o papel ATUAL — chamado sempre
+    // que o estado visual do logo muda, porque o listener em tempo real
+    // roda de novo a qualquer atualização e não pode simplesmente
+    // reabilitar o upload pra quem não é síndico.
+    function _aplicarPermissaoClique() {
+      const souAdmin = window.KV_AUTH && KV_AUTH.isAdmin && KV_AUTH.isAdmin();
+      if (souAdmin) {
+        wrap.classList.remove('logo-view-only');
+        wrap.style.cursor = 'pointer';
+        wrap.title = 'Clique para escolher o logotipo da empresa';
+        wrap.onclick = () => input.click();
+      } else {
+        wrap.classList.add('logo-view-only');
+        wrap.style.cursor = 'default';
+        wrap.title = 'Somente o síndico pode alterar o logotipo do condomínio';
+        wrap.onclick = function() {
+          if (typeof mostrarNotif === 'function') {
+            mostrarNotif('🔒 Somente o síndico pode alterar o logotipo do condomínio.', 'grey');
+          } else {
+            alert('Somente o síndico pode alterar o logotipo do condomínio.');
+          }
+        };
+      }
+    }
+
     function aplicarLogo(dataUrl) {
       img.src = dataUrl;
       img.style.display = 'block';
       ph.style.display = 'none';
       wrap.classList.add('has-logo');
-      wrap.onclick = () => input.click();
+      _aplicarPermissaoClique();
     }
 
     function limparLogo() {
@@ -8280,7 +8329,7 @@
       img.style.display = 'none';
       ph.style.display = 'flex';
       wrap.classList.remove('has-logo');
-      wrap.onclick = () => input.click();
+      _aplicarPermissaoClique();
     }
 
     function _docLogo() {
@@ -8392,6 +8441,12 @@
 
     wrap.addEventListener('touchstart', function(e) {
       if (!wrap.classList.contains('has-logo')) return;
+      // Faltava essa checagem — sem ela, qualquer pessoa (inclusive
+      // morador) segurando o dedo na área do logo por 700ms conseguia
+      // acionar a remoção, mesmo sem ter permissão de verdade no Firestore
+      // (a remoção falhava silenciosamente lá, mas a tela já tinha limpado
+      // o logo localmente, o que confundia).
+      if (!(window.KV_AUTH && KV_AUTH.isAdmin && KV_AUTH.isAdmin())) return;
       _logoHolding = false;
       _logoHoldTimer = setTimeout(() => {
         _logoHolding = true;
@@ -8401,8 +8456,21 @@
           wrap.style.boxShadow = '';
           limparLogo();
           try { localStorage.removeItem('kv_company_logo'); } catch(e) {}
-          try { await _docLogo().delete(); } catch(e) {}
-          if (typeof mostrarNotif === 'function') mostrarNotif('🗑 Logotipo removido', 'red');
+          try {
+            await _docLogo().delete();
+            if (typeof mostrarNotif === 'function') mostrarNotif('🗑 Logotipo removido', 'red');
+          } catch(e) {
+            // Não conseguiu apagar de verdade — desfaz a limpeza otimista
+            // pra tela não ficar mostrando algo que não é real.
+            try {
+              const snap = await _docLogo().get();
+              if (snap.exists && snap.data().logo) {
+                aplicarLogo(snap.data().logo);
+                try { localStorage.setItem('kv_company_logo', snap.data().logo); } catch(_) {}
+              }
+            } catch(_) {}
+            if (typeof mostrarNotif === 'function') mostrarNotif('⚠ Erro ao remover logo: ' + e.message, 'red');
+          }
         }, 200);
       }, 700);
     }, { passive: true });
@@ -8419,7 +8487,16 @@
       if (event) event.stopPropagation();
       limparLogo();
       try { localStorage.removeItem('kv_company_logo'); } catch(e) {}
-      try { await _docLogo().delete(); } catch(e) {
+      try {
+        await _docLogo().delete();
+      } catch(e) {
+        try {
+          const snap = await _docLogo().get();
+          if (snap.exists && snap.data().logo) {
+            aplicarLogo(snap.data().logo);
+            try { localStorage.setItem('kv_company_logo', snap.data().logo); } catch(_) {}
+          }
+        } catch(_) {}
         if (typeof mostrarNotif === 'function') mostrarNotif('⚠ Erro ao remover logo: ' + e.message, 'red');
       }
     };
