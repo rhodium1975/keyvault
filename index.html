@@ -11082,6 +11082,7 @@ const kvMoradores = (() => {
   async function cadastrarMorador({ nome, apto, bloco, telefone }) {
     if (!nome || !apto) throw new Error('Nome e apto são obrigatórios.');
     if (!telefone) throw new Error('Telefone é obrigatório.');
+    const condominioId = condominioIdAtivo();
     const codigoConvite = gerarCodigoConvite();
     const ref = await colMoradores().add({
       nome, apto, bloco: bloco || '',
@@ -11094,6 +11095,14 @@ const kvMoradores = (() => {
       status: 'convidado',
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
+    // "Ponteiro" público pro convite, indexado pelo PRÓPRIO código como
+    // ID do documento — só dá pra achar isso com get() sabendo o código
+    // exato (não dá pra listar/varrer). Ver nota de segurança em
+    // primeiroAcesso() sobre por que isso substitui a busca por where().
+    await firebase.firestore().collection('convitesPendentes').doc(codigoConvite).set({
+      tipo: 'morador', condominioId, moradorId: ref.id,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    });
     return { id: ref.id, codigoConvite };
   }
 
@@ -11103,23 +11112,38 @@ const kvMoradores = (() => {
   }
 
   async function excluirMorador(id) {
+    // Se ainda estiver pendente (nunca ativado), limpa também o
+    // "ponteiro" em convitesPendentes — senão fica um documento órfão
+    // apontando pra um convite que não existe mais.
+    try {
+      const snap = await colMoradores().doc(id).get();
+      if (snap.exists && snap.data().status === 'convidado' && snap.data().codigoConvite) {
+        await firebase.firestore().collection('convitesPendentes').doc(snap.data().codigoConvite).delete().catch(() => {});
+      }
+    } catch (e) { /* não impede a exclusão principal */ }
     await colMoradores().doc(id).delete();
   }
 
   async function primeiroAcesso(codigoConvite, email, senha) {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Digite um e-mail válido.');
     const emailNorm = email.trim().toLowerCase();
+    const codigoNorm = codigoConvite.toUpperCase().trim();
 
-    const snap = await colMoradoresTodosCondominios()
-      .where('codigoConvite', '==', codigoConvite.toUpperCase().trim())
-      .where('status', '==', 'convidado')
-      .limit(1).get();
+    // SEGURANÇA: antes isso era um collectionGroup().where('codigoConvite','==',...)
+    // — um "list", que o Firestore só permite quando o próprio filtro da
+    // consulta garante a condição da regra. Isso deixava qualquer um
+    // (sem login) rodar a mesma consulta SEM o where do código e colher
+    // todos os convites pendentes do sistema, código incluído. Trocado
+    // por um get() direto pelo código como ID do documento — só quem já
+    // sabe o código exato consegue encontrar isso; não dá pra listar.
+    const ponteiro = await firebase.firestore().collection('convitesPendentes').doc(codigoNorm).get();
+    if (!ponteiro.exists || ponteiro.data().tipo !== 'morador') throw new Error('Código inválido ou já utilizado.');
+    const { condominioId, moradorId } = ponteiro.data();
 
-    if (snap.empty) throw new Error('Código inválido ou já utilizado.');
-
-    const doc = snap.docs[0];
-    const dados = doc.data();
-    const condominioId = doc.ref.parent.parent.id;
+    const doc = colMoradoresDoCondominio(condominioId).doc(moradorId);
+    const snap = await doc.get();
+    if (!snap.exists || snap.data().status !== 'convidado') throw new Error('Código inválido ou já utilizado.');
+    const dados = snap.data();
 
     // O e-mail agora é o que a PRÓPRIA pessoa digitou aqui — não mais o
     // que o síndico digitou no convite (que nem existe mais nesse
@@ -11128,7 +11152,7 @@ const kvMoradores = (() => {
     const cred = await firebase.auth().createUserWithEmailAndPassword(emailNorm, senha);
     try { await cred.user.sendEmailVerification(); } catch (errVerif) { console.warn('Não foi possível enviar e-mail de verificação:', errVerif.message); }
 
-    await doc.ref.update({
+    await doc.update({
       uid: cred.user.uid,
       email: emailNorm,
       status: 'ativo',
@@ -11141,6 +11165,10 @@ const kvMoradores = (() => {
       apto: dados.apto, bloco: dados.bloco || '',
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
+
+    // Consome o ponteiro do convite — não serve mais pra nada depois de
+    // usado, e reduz ainda mais a janela de exposição.
+    try { await firebase.firestore().collection('convitesPendentes').doc(codigoNorm).delete(); } catch (e) { /* melhor esforço */ }
 
     return { uid: cred.user.uid, nome: dados.nome, apto: dados.apto, bloco: dados.bloco, moradorId: doc.id, condominioId };
   }
@@ -11216,12 +11244,19 @@ const kvPorteiros = (() => {
   async function cadastrarPorteiro({ nome, telefone }) {
     if (!nome) throw new Error('Nome é obrigatório.');
     if (!telefone) throw new Error('Telefone é obrigatório.');
+    const condominioId = condominioIdAtivo();
     const codigoConvite = gerarCodigoConvite();
     const ref = await colPorteiros().add({
       nome, telefone: telefone.trim(),
       // "email" não é mais preenchido aqui pelo síndico — o próprio
       // porteiro digita o dele no primeiro acesso.
       codigoConvite, uid: null, status: 'convidado',
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    // Mesmo "ponteiro" seguro usado pra moradores — ver nota detalhada em
+    // kvMoradores.cadastrarMorador / primeiroAcesso.
+    await firebase.firestore().collection('convitesPendentes').doc(codigoConvite).set({
+      tipo: 'porteiro', condominioId, porteiroId: ref.id,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
     return { id: ref.id, codigoConvite };
@@ -11233,28 +11268,36 @@ const kvPorteiros = (() => {
   }
 
   async function excluirPorteiro(id) {
+    try {
+      const snap = await colPorteiros().doc(id).get();
+      if (snap.exists && snap.data().status === 'convidado' && snap.data().codigoConvite) {
+        await firebase.firestore().collection('convitesPendentes').doc(snap.data().codigoConvite).delete().catch(() => {});
+      }
+    } catch (e) { /* não impede a exclusão principal */ }
     await colPorteiros().doc(id).delete();
   }
 
   async function primeiroAcesso(codigoConvite, email, senha) {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Digite um e-mail válido.');
     const emailNorm = email.trim().toLowerCase();
+    const codigoNorm = codigoConvite.toUpperCase().trim();
 
-    const snap = await colPorteirosTodosCondominios()
-      .where('codigoConvite', '==', codigoConvite.toUpperCase().trim())
-      .where('status', '==', 'convidado')
-      .limit(1).get();
+    // Mesma correção de segurança do kvMoradores: get() direto pelo
+    // código como ID, em vez de where() (que dava pra listar sem saber
+    // o código). Ver nota completa em kvMoradores.primeiroAcesso.
+    const ponteiro = await firebase.firestore().collection('convitesPendentes').doc(codigoNorm).get();
+    if (!ponteiro.exists || ponteiro.data().tipo !== 'porteiro') throw new Error('Código inválido ou já utilizado.');
+    const { condominioId, porteiroId } = ponteiro.data();
 
-    if (snap.empty) throw new Error('Código inválido ou já utilizado.');
-
-    const doc = snap.docs[0];
-    const dados = doc.data();
-    const condominioId = doc.ref.parent.parent.id;
+    const doc = colPorteirosDoCondominio(condominioId).doc(porteiroId);
+    const snap = await doc.get();
+    if (!snap.exists || snap.data().status !== 'convidado') throw new Error('Código inválido ou já utilizado.');
+    const dados = snap.data();
 
     const cred = await firebase.auth().createUserWithEmailAndPassword(emailNorm, senha);
     try { await cred.user.sendEmailVerification(); } catch (errVerif) { console.warn('Não foi possível enviar e-mail de verificação:', errVerif.message); }
 
-    await doc.ref.update({
+    await doc.update({
       uid: cred.user.uid,
       email: emailNorm,
       status: 'ativo',
@@ -11266,6 +11309,8 @@ const kvPorteiros = (() => {
       condominioId, role: 'user', nome: dados.nome, email: emailNorm,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
+
+    try { await firebase.firestore().collection('convitesPendentes').doc(codigoNorm).delete(); } catch (e) { /* melhor esforço */ }
 
     return { uid: cred.user.uid, nome: dados.nome, porteiroId: doc.id, condominioId };
   }
