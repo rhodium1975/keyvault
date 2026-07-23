@@ -5213,12 +5213,12 @@
       el.innerHTML = moradores.map(m => `
         <div class="user-entry" style="margin-bottom:8px;">
           <div class="user-entry-info">
-            <div class="user-entry-name">${m.nome}</div>
+            <div class="user-entry-name">${sanitizeHTML(m.nome)}</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
-              <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:rgba(213,0,249,0.1);border:1px solid rgba(213,0,249,0.35);color:var(--purple);">Apto ${m.apto}${m.bloco ? ' / Bloco '+m.bloco : ''}</span>
-              <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:${m.status==='ativo'?'rgba(0,230,118,0.1)':'rgba(255,171,0,0.1)'};border:1px solid ${m.status==='ativo'?'rgba(0,230,118,0.35)':'rgba(255,171,0,0.35)'};color:${m.status==='ativo'?'var(--green)':'var(--amber)'};">${m.status === 'ativo' ? '✓ Ativo' : '⏳ Aguardando'} ${m.status !== 'ativo' ? '— Código: '+m.codigoConvite : ''}</span>
+              <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:rgba(213,0,249,0.1);border:1px solid rgba(213,0,249,0.35);color:var(--purple);">Apto ${sanitizeHTML(m.apto)}${m.bloco ? ' / Bloco '+sanitizeHTML(m.bloco) : ''}</span>
+              <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:${m.status==='ativo'?'rgba(0,230,118,0.1)':'rgba(255,171,0,0.1)'};border:1px solid ${m.status==='ativo'?'rgba(0,230,118,0.35)':'rgba(255,171,0,0.35)'};color:${m.status==='ativo'?'var(--green)':'var(--amber)'};">${m.status === 'ativo' ? '✓ Ativo' : '⏳ Aguardando'} ${m.status !== 'ativo' ? '— Código: '+sanitizeHTML(m.codigoConvite) : ''}</span>
             </div>
-            <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${m.email}</div>
+            <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${sanitizeHTML(m.email)}</div>
           </div>
           <button type="button" onclick="adminExcluirMorador('${m.id}', '${(m.nome || '').replace(/'/g, "\\'")}', ${m.uid ? `'${m.uid}'` : 'null'})" title="Excluir morador" style="background:rgba(255,85,119,0.1);border:1px solid rgba(255,85,119,0.4);color:#ff5577;border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;flex-shrink:0;align-self:center;">
             🗑
@@ -5241,11 +5241,11 @@
         el.innerHTML = porteiros.map(p => `
           <div class="user-entry" style="margin-bottom:8px;">
             <div class="user-entry-info">
-              <div class="user-entry-name">${p.nome}</div>
+              <div class="user-entry-name">${sanitizeHTML(p.nome)}</div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
-                <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:${p.status==='ativo'?'rgba(0,230,118,0.1)':'rgba(255,171,0,0.1)'};border:1px solid ${p.status==='ativo'?'rgba(0,230,118,0.35)':'rgba(255,171,0,0.35)'};color:${p.status==='ativo'?'var(--green)':'var(--amber)'};">${p.status === 'ativo' ? '✓ Ativo' : '⏳ Aguardando'} ${p.status !== 'ativo' ? '— Código: '+p.codigoConvite : ''}</span>
+                <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:${p.status==='ativo'?'rgba(0,230,118,0.1)':'rgba(255,171,0,0.1)'};border:1px solid ${p.status==='ativo'?'rgba(0,230,118,0.35)':'rgba(255,171,0,0.35)'};color:${p.status==='ativo'?'var(--green)':'var(--amber)'};">${p.status === 'ativo' ? '✓ Ativo' : '⏳ Aguardando'} ${p.status !== 'ativo' ? '— Código: '+sanitizeHTML(p.codigoConvite) : ''}</span>
               </div>
-              <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${p.email}</div>
+              <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${sanitizeHTML(p.email)}</div>
             </div>
             <button type="button" onclick="adminExcluirPorteiro('${p.id}', '${(p.nome || '').replace(/'/g, "\\'")}', ${p.uid ? `'${p.uid}'` : 'null'})" title="Excluir porteiro" style="background:rgba(255,85,119,0.1);border:1px solid rgba(255,85,119,0.4);color:#ff5577;border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;flex-shrink:0;align-self:center;">
               🗑
@@ -5929,7 +5929,7 @@
       Object.entries(cats).map(([key, c]) => {
         const colorStyle = c.color ? `style="--cat-chip-color:${c.color}"` : '';
         const removeBtn = podeGerenciarCats ? `<span class="cat-chip-del" onclick="removerCatInline(event,'${key}')" title="Remover categoria">✕</span>` : '';
-        return `<button class="cat-chip${c.color ? ' cat-chip-custom' : ''}" ${colorStyle} onclick="setCat('${key}',this,'${c.cls || 'sel-apt'}')">${c.icon} ${c.label}${removeBtn}</button>`;
+        return `<button class="cat-chip${c.color ? ' cat-chip-custom' : ''}" ${colorStyle} onclick="setCat('${key}',this,'${c.cls || 'sel-apt'}')">${sanitizeHTML(c.icon)} ${sanitizeHTML(c.label)}${removeBtn}</button>`;
       }).join('') +
       `<button class="cat-manage-btn" onclick="abrirGerenciarCats()" title="Nova categoria / Gerenciar"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>`;
     // restore active state
@@ -5946,10 +5946,10 @@
       const inUse = chaves.some(ch => ch.cat === key);
       const isSelected = selectedCatKey === key;
       return `<div class="cat-item-row${isSelected ? ' selected' : ''}" data-catkey="${key}" onclick="selecionarCatRow(this,'${key}')">
-        <div class="cat-item-icon">${c.icon}</div>
+        <div class="cat-item-icon">${sanitizeHTML(c.icon)}</div>
         <div class="cat-item-info">
-          <div class="cat-item-name">${c.label}</div>
-          <div class="cat-item-key">${key}</div>
+          <div class="cat-item-name">${sanitizeHTML(c.label)}</div>
+          <div class="cat-item-key">${sanitizeHTML(key)}</div>
         </div>
         <span class="cat-item-badge ${c.fixed ? 'fixed' : ''}">${c.fixed ? 'Padrão' : (inUse ? 'Em uso' : 'Custom')}</span>
       </div>`;
@@ -6109,7 +6109,7 @@
     const el = document.createElement('div');
     el.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid rgba(255,23,68,0.4);border-radius:12px;padding:12px 16px;z-index:2100;display:flex;align-items:center;gap:12px;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
     const aviso = inUse ? `<span style="font-family:var(--font-display);font-size:11px;letter-spacing:1px;color:var(--amber);">Em uso!</span>` : '';
-    el.innerHTML = `<span style="font-family:var(--font-display);font-size:11px;letter-spacing:1px;color:var(--text-dim);">Remover <b style="color:var(--text)">${nome}</b>?</span>${aviso}
+    el.innerHTML = `<span style="font-family:var(--font-display);font-size:11px;letter-spacing:1px;color:var(--text-dim);">Remover <b style="color:var(--text)">${sanitizeHTML(nome)}</b>?</span>${aviso}
       <button style="background:var(--red-dim);border:1px solid var(--red);color:var(--red);font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:5px 12px;border-radius:7px;cursor:pointer;" id="_confirmDelCat">Remover</button>
       <button style="background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:5px 10px;border-radius:7px;cursor:pointer;" id="_cancelDelCat">✕</button>`;
     document.body.appendChild(el);
@@ -6366,7 +6366,7 @@
     }
     list.innerHTML = customTabs.map(tab => `
       <div class="sel-del-item" onclick="selecionarDelTab('${tab.id}')">
-        <span class="sel-del-item-name">${tab.nome}</span>
+        <span class="sel-del-item-name">${sanitizeHTML(tab.nome)}</span>
         <span class="sel-del-item-badge">Personalizada</span>
       </div>
     `).join('');
@@ -6575,20 +6575,20 @@
         if (c.status === 'reservada') {
           extra = `
             <div class="card-info">
-              <span>${iconUser} <span style="color:var(--purple)">${c.resp}</span> <small style="opacity:.6;margin-left:3px">🔖 Reserva</small></span>
+              <span>${iconUser} <span style="color:var(--purple)">${sanitizeHTML(c.resp)}</span> <small style="opacity:.6;margin-left:3px">🔖 Reserva</small></span>
             </div>
             <div class="card-info" style="margin-top:3px">
-              ${c.reservadoEm ? `<span>${iconClock} Reservado em ${c.reservadoEm}</span>` : ''}
-              ${c.unidade ? `<span>Unid. ${c.unidade}</span>` : ''}
+              ${c.reservadoEm ? `<span>${iconClock} Reservado em ${sanitizeHTML(c.reservadoEm)}</span>` : ''}
+              ${c.unidade ? `<span>Unid. ${sanitizeHTML(c.unidade)}</span>` : ''}
             </div>`;
         } else {
           extra = `
             <div class="card-info">
-              <span>${iconUser} ${c.resp} <small style="opacity:.6;margin-left:3px">${tipoLabel}</small></span>
+              <span>${iconUser} ${sanitizeHTML(c.resp)} <small style="opacity:.6;margin-left:3px">${tipoLabel}</small></span>
             </div>
             <div class="card-info" style="margin-top:3px">
               <span>${iconClock} Prev. ${c.previsao ? c.previsao.split(' ')[1] : '--'}</span>
-              ${c.unidade ? `<span>Unid. ${c.unidade}</span>` : ''}
+              ${c.unidade ? `<span>Unid. ${sanitizeHTML(c.unidade)}</span>` : ''}
             </div>
             <div class="time-bar-wrap">
               <div class="time-bar-bg"><div class="time-bar-fill" style="width:${pct}%;background:${barColor};box-shadow:0 0 6px ${barColor}"></div></div>
@@ -6631,12 +6631,12 @@
           ${badgeHtml}
         </div>
         <div class="card-nome" style="display:flex;align-items:center;gap:6px;">
-          <span>${c.nome}</span>
+          <span>${sanitizeHTML(c.nome)}</span>
           <button class="edit-id-btn" onclick="editarNome(event,'${c.id}')" title="Editar nome" ${!_userIsAdmin ? 'style="display:none"' : ''}>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
         </div>
-        ${(c.aliases && c.aliases.length) ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">${c.aliases.map(a=>`<span style="font-family:var(--font-display);font-size:8px;letter-spacing:0.8px;padding:2px 7px;border-radius:10px;background:rgba(0,229,255,0.07);border:1px solid rgba(0,229,255,0.2);color:rgba(0,229,255,0.55);">🎤 ${a}</span>`).join('')}</div>` : ''}
+        ${(c.aliases && c.aliases.length) ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">${c.aliases.map(a=>`<span style="font-family:var(--font-display);font-size:8px;letter-spacing:0.8px;padding:2px 7px;border-radius:10px;background:rgba(0,229,255,0.07);border:1px solid rgba(0,229,255,0.2);color:rgba(0,229,255,0.55);">🎤 ${sanitizeHTML(a)}</span>`).join('')}</div>` : ''}
         ${extra}
       </div>`;
     }).join('');
@@ -6650,8 +6650,8 @@
       <div class="log-item">
         <div class="log-dot-wrap"><div class="log-dot ${l.tipo}"></div></div>
         <div class="log-body">
-          <div class="log-txt">${l.txt}</div>
-          <div class="log-time">${l.hora}</div>
+          <div class="log-txt">${sanitizeHTML(l.txt)}</div>
+          <div class="log-time">${sanitizeHTML(l.hora)}</div>
         </div>
       </div>`;
     el.innerHTML = `<div class="log-scroll">${items.map(makeItem).join('')}</div>`;
@@ -6665,11 +6665,11 @@
       <div class="modal-key-grid">
         <div class="modal-key-cell">
           <span class="modal-key-cell-label">Código</span>
-          <span class="modal-key-cell-val">${ch.id}</span>
+          <span class="modal-key-cell-val">${sanitizeHTML(ch.id)}</span>
         </div>
         <div class="modal-key-cell">
           <span class="modal-key-cell-label">Nome</span>
-          <span class="modal-key-cell-val">${ch.nome}</span>
+          <span class="modal-key-cell-val">${sanitizeHTML(ch.nome)}</span>
         </div>
       </div>`;
   }
@@ -6687,8 +6687,8 @@
           : `style="border-color:${c.color}44;color:${c.color}88"`;
       }
       return `<button class="modal-cat-chip${isSel ? ' mcc-sel' : ''}" data-cat="${key}" data-catkey="${key}" ${inlineStyle}>
-        <span class="mcc-icon">${c.icon}</span>
-        <span class="mcc-label">${c.label}</span>
+        <span class="mcc-icon">${sanitizeHTML(c.icon)}</span>
+        <span class="mcc-label">${sanitizeHTML(c.label)}</span>
       </button>`;
     }).join('');
   }
@@ -6784,10 +6784,10 @@
           Chave reservada — aguardando retirada
         </div>
         <div class="info-block">
-          <div class="info-row"><span class="info-key">Reservado por</span><span class="info-val" style="color:var(--purple)">${chaveAtual.resp}</span></div>
-          ${chaveAtual.unidade ? `<div class="info-row"><span class="info-key">Unidade</span><span class="info-val">${chaveAtual.unidade}</span></div>` : ''}
-          ${chaveAtual.reservadoEm ? `<div class="info-row"><span class="info-key">Reservado em</span><span class="info-val">${chaveAtual.reservadoEm}</span></div>` : ''}
-          ${chaveAtual.obs ? `<div class="info-row"><span class="info-key">Obs.</span><span class="info-val">${chaveAtual.obs}</span></div>` : ''}
+          <div class="info-row"><span class="info-key">Reservado por</span><span class="info-val" style="color:var(--purple)">${sanitizeHTML(chaveAtual.resp)}</span></div>
+          ${chaveAtual.unidade ? `<div class="info-row"><span class="info-key">Unidade</span><span class="info-val">${sanitizeHTML(chaveAtual.unidade)}</span></div>` : ''}
+          ${chaveAtual.reservadoEm ? `<div class="info-row"><span class="info-key">Reservado em</span><span class="info-val">${sanitizeHTML(chaveAtual.reservadoEm)}</span></div>` : ''}
+          ${chaveAtual.obs ? `<div class="info-row"><span class="info-key">Obs.</span><span class="info-val">${sanitizeHTML(chaveAtual.obs)}</span></div>` : ''}
         </div>
         <label class="form-label">Previsão de devolução</label>
         <input class="form-input" id="f-prev" type="time" value="${chaveAtual.previsao ? chaveAtual.previsao.split(' ')[1] : '18:00'}">
@@ -6810,7 +6810,7 @@
         </div>` : ''}
         <div class="info-block">
           <div class="info-row"><span class="info-key">Tipo</span><span class="info-val">${chaveAtual.tipo === 'visitante' ? '👤 Visitante' : isLivre ? '⚡ Livre' : '🏠 Morador'}</span></div>
-          ${chaveAtual.unidade ? `<div class="info-row"><span class="info-key">Unidade</span><span class="info-val">${chaveAtual.unidade}</span></div>` : ''}
+          ${chaveAtual.unidade ? `<div class="info-row"><span class="info-key">Unidade</span><span class="info-val">${sanitizeHTML(chaveAtual.unidade)}</span></div>` : ''}
           <div class="info-row"><span class="info-key">Retirada</span><span class="info-val">${chaveAtual.retirada}</span></div>
           <div class="info-row"><span class="info-key">Previsão</span><span class="info-val" style="color:${isAtr?'var(--red)':'var(--amber)'}">${chaveAtual.previsao}</span></div>
         </div>
@@ -6824,7 +6824,7 @@
         ` : `
           <div class="info-row" style="padding:4px 0 10px;font-size:13px;">
             <span style="color:var(--text-dim)">Responsável</span>
-            <span style="color:var(--text);font-weight:500;margin-left:auto">${chaveAtual.resp}</span>
+            <span style="color:var(--text);font-weight:500;margin-left:auto">${sanitizeHTML(chaveAtual.resp)}</span>
           </div>
         `}
         <label class="form-label">Observação</label>
@@ -6944,7 +6944,7 @@
       const isSel = key === catNova;
       const style = c.color && isSel ? `style="border-color:${c.color};color:${c.color};background:${c.color}22"` : '';
       const selCls = isSel ? (c.cls || 'sel-apt') : '';
-      return `<button class="tipo-opt ${selCls}" onclick="selCatNova('${key}',this)" ${style}>${c.icon} ${c.label.length > 8 ? c.label.slice(0,8)+'.' : c.label}</button>`;
+      return `<button class="tipo-opt ${selCls}" onclick="selCatNova('${key}',this)" ${style}>${sanitizeHTML(c.icon)} ${sanitizeHTML(c.label.length > 8 ? c.label.slice(0,8)+'.' : c.label)}</button>`;
     }).join('');
   }
 
@@ -7187,7 +7187,7 @@
     if (!el) return;
     if (!aliases || !aliases.length) { el.innerHTML = ''; return; }
     el.innerHTML = aliases.map(a =>
-      `<span style="font-family:var(--font-display);font-size:9px;letter-spacing:1px;padding:3px 9px;border-radius:20px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.3);color:var(--cyan);">🎤 ${a}</span>`
+      `<span style="font-family:var(--font-display);font-size:9px;letter-spacing:1px;padding:3px 9px;border-radius:20px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.3);color:var(--cyan);">🎤 ${sanitizeHTML(a)}</span>`
     ).join('');
   }
 
@@ -7273,8 +7273,8 @@
         const isCur = ch.cat === key;
         const colorStyle = cat.color ? `style="color:${cat.color}"` : '';
         return `<div class="cat-edit-opt${isCur ? ' current' : ''}" data-key="${key}">
-          <span ${colorStyle}>${cat.icon}</span>
-          <span class="cat-edit-opt-label" ${colorStyle}>${cat.label}</span>
+          <span ${colorStyle}>${sanitizeHTML(cat.icon)}</span>
+          <span class="cat-edit-opt-label" ${colorStyle}>${sanitizeHTML(cat.label)}</span>
           <span class="cat-edit-opt-check">✓</span>
         </div>`;
       }).join('');
@@ -7383,16 +7383,16 @@
       <div class="rel-item">
         <div class="rel-item-top">
           <div>
-            <div class="rel-item-nome">${c.nome}</div>
-            <div class="rel-item-id">${c.id} · ${CAT_ICONS[c.cat]||''} ${CAT_LABELS[c.cat]||c.cat}</div>
+            <div class="rel-item-nome">${sanitizeHTML(c.nome)}</div>
+            <div class="rel-item-id">${sanitizeHTML(c.id)} · ${CAT_ICONS[c.cat]||''} ${CAT_LABELS[c.cat]||sanitizeHTML(c.cat)}</div>
           </div>
           <span class="rel-badge ${badgeCls}">${badgeTxt}</span>
         </div>
         ${c.resp ? `<div class="rel-item-rows">
-          <span>Responsável<b>${c.resp}</b></span>
+          <span>Responsável<b>${sanitizeHTML(c.resp)}</b></span>
           <span>Tipo<b>${c.tipo==='visitante'?'👤 Visitante':c.tipo==='livre'?'⚡ Livre':'🏠 Morador'}</b></span>
-          ${c.unidade ? `<span>Unidade<b>${c.unidade}</b></span>` : ''}
-          ${c.doc ? `<span>CPF/Doc<b>${c.doc}</b></span>` : ''}
+          ${c.unidade ? `<span>Unidade<b>${sanitizeHTML(c.unidade)}</b></span>` : ''}
+          ${c.doc ? `<span>CPF/Doc<b>${sanitizeHTML(c.doc)}</b></span>` : ''}
           <span>Retirada<b>${c.retirada || c.reservadoEm || '—'}</b></span>
           <span>Previsão<b>${c.previsao || '—'}</b></span>
         </div>` : ''}
@@ -7453,8 +7453,8 @@
             <div class="rel-hist-item">
               <div class="log-dot ${l.tipo}" style="margin-top:3px;flex-shrink:0"></div>
               <div>
-                <div style="font-size:12px;color:var(--text)">${l.txt}</div>
-                <div style="font-size:10px;color:var(--text-dim);font-family:var(--font-display);margin-top:2px">${l.hora}</div>
+                <div style="font-size:12px;color:var(--text)">${sanitizeHTML(l.txt)}</div>
+                <div style="font-size:10px;color:var(--text-dim);font-family:var(--font-display);margin-top:2px">${sanitizeHTML(l.hora)}</div>
               </div>
             </div>`).join('')
           : '<div class="rel-empty">Sem registros</div>'}
@@ -7568,9 +7568,9 @@
     function createGhost(card, chave) {
       ghost = document.createElement('div');
       ghost.className = 'drag-ghost';
-      ghost.innerHTML = `<div class="drag-ghost-label">${chave.id}</div>
-        <div class="drag-ghost-nome">${chave.nome}</div>
-        <div class="drag-ghost-cat">${CAT_I[chave.cat]||''} ${CAT_L[chave.cat]||chave.cat}</div>`;
+      ghost.innerHTML = `<div class="drag-ghost-label">${sanitizeHTML(chave.id)}</div>
+        <div class="drag-ghost-nome">${sanitizeHTML(chave.nome)}</div>
+        <div class="drag-ghost-cat">${CAT_I[chave.cat]||''} ${CAT_L[chave.cat]||sanitizeHTML(chave.cat)}</div>`;
       ghost.style.width = card.offsetWidth + 'px';
       document.body.appendChild(ghost);
     }
@@ -8741,9 +8741,9 @@
         <div class="enc-card${entregue ? ' entregue' : ''}" id="enc-hist-${e.id}" style="opacity:0.85;">
           <div class="enc-card-top">
             <div>
-              <div class="enc-apto">Apto ${e.apto || '—'}</div>
-              <div style="font-size:12px;color:var(--text);font-weight:500;margin-bottom:2px;">👤 ${e.destinatario || '—'}</div>
-              <div class="enc-desc">${e.desc || 'Encomenda registrada'}</div>
+              <div class="enc-apto">Apto ${sanitizeHTML(e.apto) || '—'}</div>
+              <div style="font-size:12px;color:var(--text);font-weight:500;margin-bottom:2px;">👤 ${sanitizeHTML(e.destinatario) || '—'}</div>
+              <div class="enc-desc">${sanitizeHTML(e.desc) || 'Encomenda registrada'}</div>
               <div class="enc-meta"><span>🕐 ${hora}</span></div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
@@ -8801,7 +8801,7 @@
           .filter(e => e.destinatario)
           .map(e => e.destinatario);
         const nomesUnicos = [...new Set([...nomesChaves, ...nomesEnc])].sort();
-        datalist.innerHTML = nomesUnicos.map(n => `<option value="${n}">`).join('');
+        datalist.innerHTML = nomesUnicos.map(n => `<option value="${sanitizeHTML(n)}">`).join('');
       }
 
       // Filtro por perfil: morador só vê as próprias encomendas
@@ -8865,13 +8865,13 @@
         <div class="enc-card${entregue ? ' entregue' : ''}" id="enc-${enc.id}">
           <div class="enc-card-top">
             <div>
-              <div class="enc-apto">Apto ${enc.apto}</div>
-              ${enc.destinatario ? `<div style="font-size:12px;color:var(--text);font-weight:500;margin-bottom:2px;">👤 ${enc.destinatario}</div>` : ''}
-              <div class="enc-desc">${enc.desc || 'Encomenda registrada'}</div>
+              <div class="enc-apto">Apto ${sanitizeHTML(enc.apto)}</div>
+              ${enc.destinatario ? `<div style="font-size:12px;color:var(--text);font-weight:500;margin-bottom:2px;">👤 ${sanitizeHTML(enc.destinatario)}</div>` : ''}
+              <div class="enc-desc">${sanitizeHTML(enc.desc) || 'Encomenda registrada'}</div>
               <div class="enc-meta">
                 <span>🕐 ${hora}</span>
                 ${enc.entregueTs ? `<span>✅ Entregue ${new Date(enc.entregueTs).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>` : ''}
-                ${enc.retiradoPor ? `<span>👤 ${enc.retiradoPor}</span>` : ''}
+                ${enc.retiradoPor ? `<span>👤 ${sanitizeHTML(enc.retiradoPor)}</span>` : ''}
               </div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
@@ -8879,7 +8879,7 @@
               ${fotoHtml}
             </div>
           </div>
-          ${enc.faltante && enc.faltanteDesc ? `<div class="enc-faltante-info"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>${enc.faltanteDesc}</div>` : ''}
+          ${enc.faltante && enc.faltanteDesc ? `<div class="enc-faltante-info"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>${sanitizeHTML(enc.faltanteDesc)}</div>` : ''}
           ${!entregue ? `
           <div class="enc-actions">
             ${_isMorador ? `
@@ -8972,8 +8972,8 @@
         item.onmouseleave = () => item.style.background = 'transparent';
         const hora = new Date(enc.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
         item.innerHTML = `
-          <span style="font-family:var(--font-display);font-size:13px;font-weight:700;color:var(--green)">Apto ${enc.apto}</span>
-          <span style="flex:1;font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${enc.desc || 'Encomenda'}</span>
+          <span style="font-family:var(--font-display);font-size:13px;font-weight:700;color:var(--green)">Apto ${sanitizeHTML(enc.apto)}</span>
+          <span style="flex:1;font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sanitizeHTML(enc.desc) || 'Encomenda'}</span>
           <span style="font-size:10px;color:var(--text-dim);opacity:0.6;white-space:nowrap">${hora}</span>
         `;
         item.onclick = () => {
@@ -9639,11 +9639,11 @@
       document.getElementById('encRetInfo').innerHTML = `
         <div class="enc-ret-info-cell">
           <span class="enc-ret-info-label">Apartamento</span>
-          <span class="enc-ret-info-val">Apto ${enc.apto}</span>
+          <span class="enc-ret-info-val">Apto ${sanitizeHTML(enc.apto)}</span>
         </div>
         ${enc.destinatario ? `<div class="enc-ret-info-cell">
           <span class="enc-ret-info-label">Destinatário</span>
-          <span class="enc-ret-info-val">${enc.destinatario}</span>
+          <span class="enc-ret-info-val">${sanitizeHTML(enc.destinatario)}</span>
         </div>` : ''}
         <div class="enc-ret-info-cell">
           <span class="enc-ret-info-label">Chegada</span>
@@ -9651,7 +9651,7 @@
         </div>
         ${enc.desc ? `<div class="enc-ret-info-cell wide">
           <span class="enc-ret-info-label">Descrição</span>
-          <span class="enc-ret-info-val">${enc.desc}</span>
+          <span class="enc-ret-info-val">${sanitizeHTML(enc.desc)}</span>
         </div>` : ''}
       `;
       document.getElementById('encRetResp').value = '';
@@ -9826,8 +9826,8 @@ window.mostrarNotifEncomendaMorador = function(user) {
       const hora = new Date(e.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       return `<div class="enc-notif-banner-item">
         <div style="flex:1;min-width:0;">
-          <div class="enc-notif-banner-item-apto">Apto ${e.apto}</div>
-          <div class="enc-notif-banner-item-desc">${e.desc || 'Encomenda registrada'} &mdash; ${hora}</div>
+          <div class="enc-notif-banner-item-apto">Apto ${sanitizeHTML(e.apto)}</div>
+          <div class="enc-notif-banner-item-desc">${sanitizeHTML(e.desc) || 'Encomenda registrada'} &mdash; ${hora}</div>
         </div>
       </div>`;
     }).join('');
@@ -10064,14 +10064,14 @@ const kvPrest = (() => {
       return `<div class="prest-card ${ag.status}" id="prest-card-${ag.id}" onclick="kvPrest.toggleCardAcoes('${ag.id}', event)">
         <div class="prest-card-top">
           <div>
-            <div class="prest-nome">${tipo.icon} ${ag.nome || '—'}</div>
-            ${ag.servico ? `<div style="font-size:12px;color:var(--text);margin:3px 0 1px;">${ag.servico}</div>` : ''}
+            <div class="prest-nome">${tipo.icon} ${sanitizeHTML(ag.nome) || '—'}</div>
+            ${ag.servico ? `<div style="font-size:12px;color:var(--text);margin:3px 0 1px;">${sanitizeHTML(ag.servico)}</div>` : ''}
             <div class="prest-info-row" style="margin-top:4px;">
-              <span>🏠 Apto ${ag.apto}</span>
+              <span>🏠 Apto ${sanitizeHTML(ag.apto)}</span>
               <span>📅 ${dataStr}${hora}</span>
-              ${ag.doc ? `<span>🪪 ${ag.doc}</span>` : ''}
+              ${ag.doc ? `<span>🪪 ${sanitizeHTML(ag.doc)}</span>` : ''}
             </div>
-            ${ag.obs ? `<div style="font-size:11px;color:var(--text-dim);margin-top:5px;opacity:0.8;">${ag.obs}</div>` : ''}
+            ${ag.obs ? `<div style="font-size:11px;color:var(--text-dim);margin-top:5px;opacity:0.8;">${sanitizeHTML(ag.obs)}</div>` : ''}
             ${ag.solicitanteMorador ? `<div style="font-size:10px;color:var(--amber);margin-top:4px;font-family:var(--font-display);letter-spacing:0.5px;">👤 Solicitado pelo morador</div>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
@@ -10256,14 +10256,14 @@ const kvPrest = (() => {
 
     body.innerHTML = `
       <div class="prest-info-grid">
-        ${ag.servico ? `<div class="prest-info-cell full"><div class="prest-info-lbl">Serviço</div><div class="prest-info-val" style="color:var(--text);">${ag.servico}</div></div>` : ''}
+        ${ag.servico ? `<div class="prest-info-cell full"><div class="prest-info-lbl">Serviço</div><div class="prest-info-val" style="color:var(--text);">${sanitizeHTML(ag.servico)}</div></div>` : ''}
         <div class="prest-info-cell full">
           <div class="prest-info-lbl">Prestador</div>
-          <div class="prest-info-val" style="color:var(--cyan);font-weight:700;">${ag.nome || '—'}</div>
+          <div class="prest-info-val" style="color:var(--cyan);font-weight:700;">${sanitizeHTML(ag.nome) || '—'}</div>
         </div>
         <div class="prest-info-cell">
           <div class="prest-info-lbl">Unidade</div>
-          <div class="prest-info-val">Apto ${ag.apto}</div>
+          <div class="prest-info-val">Apto ${sanitizeHTML(ag.apto)}</div>
         </div>
         <div class="prest-info-cell">
           <div class="prest-info-lbl">Status</div>
@@ -10275,11 +10275,11 @@ const kvPrest = (() => {
         </div>
         <div class="prest-info-cell">
           <div class="prest-info-lbl">Horário</div>
-          <div class="prest-info-val">${ag.hora || '—'}</div>
+          <div class="prest-info-val">${sanitizeHTML(ag.hora) || '—'}</div>
         </div>
-        ${ag.doc ? `<div class="prest-info-cell full"><div class="prest-info-lbl">Documento</div><div class="prest-info-val">${ag.doc}</div></div>` : ''}
-        ${ag.obs ? `<div class="prest-info-cell full"><div class="prest-info-lbl">Observação</div><div class="prest-info-val">${ag.obs}</div></div>` : ''}
-        ${ag.solicitanteMorador ? `<div class="prest-info-cell full"><div class="prest-info-lbl">Solicitado por</div><div class="prest-info-val" style="color:var(--amber);">👤 ${ag.solicitanteMorador}</div></div>` : ''}
+        ${ag.doc ? `<div class="prest-info-cell full"><div class="prest-info-lbl">Documento</div><div class="prest-info-val">${sanitizeHTML(ag.doc)}</div></div>` : ''}
+        ${ag.obs ? `<div class="prest-info-cell full"><div class="prest-info-lbl">Observação</div><div class="prest-info-val">${sanitizeHTML(ag.obs)}</div></div>` : ''}
+        ${ag.solicitanteMorador ? `<div class="prest-info-cell full"><div class="prest-info-lbl">Solicitado por</div><div class="prest-info-val" style="color:var(--amber);">👤 ${sanitizeHTML(ag.solicitanteMorador)}</div></div>` : ''}
         ${ag.criadoEm ? `<div class="prest-info-cell full"><div class="prest-info-lbl">Criado em</div><div class="prest-info-val" style="font-size:11px;color:var(--text-dim);">${ag.criadoEm}</div></div>` : ''}
       </div>
       <div class="prest-action-row">
@@ -10387,10 +10387,10 @@ const kvPrest = (() => {
       return `<div class="prest-card cancelado" style="opacity:0.78;">
         <div class="prest-card-top">
           <div>
-            <div class="prest-nome">${tipo.icon} ${ag.nome || '—'}</div>
-            ${ag.servico ? `<div style="font-size:12px;color:var(--text);margin:3px 0 1px;">${ag.servico}</div>` : ''}
+            <div class="prest-nome">${tipo.icon} ${sanitizeHTML(ag.nome) || '—'}</div>
+            ${ag.servico ? `<div style="font-size:12px;color:var(--text);margin:3px 0 1px;">${sanitizeHTML(ag.servico)}</div>` : ''}
             <div class="prest-info-row" style="margin-top:4px;">
-              <span>🏠 Apto ${ag.apto}</span>
+              <span>🏠 Apto ${sanitizeHTML(ag.apto)}</span>
               <span>📅 ${dataStr}${ag.hora ? ' · ' + ag.hora : ''}</span>
             </div>
             ${ag.removidoEm ? `<div style="font-size:10px;color:var(--text-dim);margin-top:5px;opacity:0.8;">Removido em ${ag.removidoEm}</div>` : ''}
@@ -10573,7 +10573,7 @@ const kvEnquetes = (() => {
       const selecionado = meuVotoAtual && meuVotoAtual.opcao === o;
       const estiloSelecionado = `background:${cor};border-color:${cor};color:#0a0e14;font-weight:700;`;
       const estiloNormal = `background:transparent;border:1.5px solid ${cor};color:${cor};`;
-      return `<button class="prest-btn-confirm" style="flex:1;min-width:90px;margin:0;${selecionado ? estiloSelecionado : estiloNormal}" ${selecionado ? 'disabled' : `onclick="kvEnquetes.votar('${e.id}','${o.replace(/'/g,"\\'")}')"`}>${o}${selecionado ? ' ✓' : ''}</button>`;
+      return `<button class="prest-btn-confirm" style="flex:1;min-width:90px;margin:0;${selecionado ? estiloSelecionado : estiloNormal}" ${selecionado ? 'disabled' : `onclick="kvEnquetes.votar('${e.id}','${o.replace(/'/g,"\\'")}')"`}>${sanitizeHTML(o)}${selecionado ? ' ✓' : ''}</button>`;
     }).join('');
     return `<div style="font-size:11.5px;color:var(--text-dim);margin:10px 0 6px;">${label}</div><div style="display:flex;gap:8px;flex-wrap:wrap;">${botoes}</div>`;
   }
@@ -10634,8 +10634,8 @@ const kvEnquetes = (() => {
       <div class="prest-card" onclick="kvEnquetes.abrirDetalhe('${e.id}')" style="cursor:pointer;">
         <div class="prest-card-top">
           <div style="flex:1;min-width:0;">
-            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;">📊 ${e.titulo}</div>
-            ${e.descricao ? `<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:4px;">${e.descricao}</div>` : ''}
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;">📊 ${sanitizeHTML(e.titulo)}</div>
+            ${e.descricao ? `<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:4px;">${sanitizeHTML(e.descricao)}</div>` : ''}
             <div class="prest-info-row"><span>🗓 Até ${prazo}</span>${e.anonima ? ' <span>🕶 Anônima</span>' : ''}</div>
             ${jaVotou ? '' : `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Toque pra votar.</div>`}
           </div>
@@ -10661,7 +10661,7 @@ const kvEnquetes = (() => {
       <div class="prest-card" onclick="kvEnquetes.abrirDetalhe('${e.id}')" style="cursor:pointer;opacity:0.9;">
         <div class="prest-card-top">
           <div style="flex:1;min-width:0;">
-            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;">📊 ${e.titulo}</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;">📊 ${sanitizeHTML(e.titulo)}</div>
             <div class="prest-info-row"><span>🏁 Encerrada — prazo era ${prazo}</span></div>
           </div>
           <div style="flex-shrink:0;">${_pieChartSvg(e, 40)}</div>
@@ -10816,7 +10816,7 @@ const kvEnquetes = (() => {
     const mostrarResultado = !resultadoOcultoPorAnonimato && (encerrada || !!meuVoto || _isEquipe());
 
     let html = '';
-    if (e.descricao) html += `<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:10px;">${e.descricao}</div>`;
+    if (e.descricao) html += `<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:10px;">${sanitizeHTML(e.descricao)}</div>`;
     html += `<div class="prest-info-row" style="margin-bottom:12px;"><span>🗓 ${encerrada ? 'Encerrada — prazo era' : 'Até'} ${prazo}</span> ${resultadoOcultoPorAnonimato ? '' : `<span>👥 ${total} voto${total===1?'':'s'}</span>`}${e.anonima ? ' <span>🕶 Anônima</span>' : ''}</div>`;
 
     if (resultadoOcultoPorAnonimato) {
@@ -10835,7 +10835,7 @@ const kvEnquetes = (() => {
         return `
         <div style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
-            <span style="color:${souEu?'var(--cyan)':'var(--text)'};font-weight:${souEu?'700':'500'};">${o}${souEu ? ' ✓ (seu voto)' : ''}</span>
+            <span style="color:${souEu?'var(--cyan)':'var(--text)'};font-weight:${souEu?'700':'500'};">${sanitizeHTML(o)}${souEu ? ' ✓ (seu voto)' : ''}</span>
             <span style="color:var(--text-dim);">${pct}%</span>
           </div>
           <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;">
@@ -10848,7 +10848,7 @@ const kvEnquetes = (() => {
       } else if (!encerrada) {
         html += _botoesVotoHtml(e, meuVoto);
       } else if (meuVoto) {
-        html += `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Seu voto: <strong style="color:var(--text);">${meuVoto.opcao}</strong>.</div>`;
+        html += `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Seu voto: <strong style="color:var(--text);">${sanitizeHTML(meuVoto.opcao)}</strong>.</div>`;
       } else {
         html += `<div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Enquete encerrada — você não votou.</div>`;
       }
@@ -10869,7 +10869,7 @@ const kvEnquetes = (() => {
         return `
         <div style="margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
-            <span style="color:${souEu?'var(--cyan)':'var(--text)'};font-weight:${souEu?'700':'500'};">${o}${souEu ? ' ✓ (seu voto)' : ''}</span>
+            <span style="color:${souEu?'var(--cyan)':'var(--text)'};font-weight:${souEu?'700':'500'};">${sanitizeHTML(o)}${souEu ? ' ✓ (seu voto)' : ''}</span>
             <span style="color:var(--text-dim);">${n} · ${pct}%</span>
           </div>
           <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;">
@@ -10879,7 +10879,7 @@ const kvEnquetes = (() => {
       }).join('');
 
       if (!e.anonima && (_isEquipe() || meuVoto)) {
-        const nomes = votos.filter(v => v.nome).map(v => `${v.nome}${v.apto ? ' (Apto '+v.apto+')' : ''}`);
+        const nomes = votos.filter(v => v.nome).map(v => `${sanitizeHTML(v.nome)}${v.apto ? ' (Apto '+sanitizeHTML(v.apto)+')' : ''}`);
         if (nomes.length) {
           html += `<div style="margin-top:14px;font-size:10.5px;color:var(--text-dim);">
             <div style="font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">Quem já votou:</div>
@@ -11160,9 +11160,12 @@ const kvMoradores = (() => {
     });
 
     // Espelho em usuarios/{uid}, para o login padrão (KV_TENANT.login) reconhecer este morador depois.
+    // "moradorId" aqui é novo: é o que permite à regra do Firestore
+    // confirmar que esse usuarios/{uid} corresponde de verdade a um
+    // convite de morador legítimo (mesma lógica já usada pro síndico).
     await firebase.firestore().collection('usuarios').doc(cred.user.uid).set({
       condominioId, role: 'morador', nome: dados.nome, email: emailNorm,
-      apto: dados.apto, bloco: dados.bloco || '',
+      apto: dados.apto, bloco: dados.bloco || '', moradorId,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -11305,8 +11308,10 @@ const kvPorteiros = (() => {
     });
 
     // Espelho em usuarios/{uid} — é isso que dá acesso de verdade (role:'user').
+    // "porteiroId" é novo: permite à regra confirmar que corresponde a
+    // um convite de porteiro legítimo (mesma lógica do síndico/morador).
     await firebase.firestore().collection('usuarios').doc(cred.user.uid).set({
-      condominioId, role: 'user', nome: dados.nome, email: emailNorm,
+      condominioId, role: 'user', nome: dados.nome, email: emailNorm, porteiroId,
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -12690,10 +12695,10 @@ function _exibirBannerNotifVisitantes(pendentes) {
     : `👥 ${pendentes.length} novas listas de visitantes`;
 
   lista.innerHTML = pendentes.map(p => {
-    const nomes = (p.nomes || []).join(', ');
+    const nomes = (p.nomes || []).map(n => sanitizeHTML(n)).join(', ');
     return `<div class="enc-notif-banner-item">
       <div style="flex:1;min-width:0;">
-        <div class="enc-notif-banner-item-apto">${p.moradorNome || 'Morador'}${p.apto ? ' — Apto ' + p.apto : ''}</div>
+        <div class="enc-notif-banner-item-apto">${sanitizeHTML(p.moradorNome) || 'Morador'}${p.apto ? ' — Apto ' + sanitizeHTML(p.apto) : ''}</div>
         <div class="enc-notif-banner-item-desc">${p.qtd || 1} pessoa(s): ${nomes}</div>
       </div>
     </div>`;
