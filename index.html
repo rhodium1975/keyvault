@@ -149,10 +149,21 @@
   }
   .logo-crop-viewport {
     position: relative; width: 100%; aspect-ratio: 320 / 90;
-    background: #05070a; border-radius: 10px; overflow: hidden;
+    border-radius: 10px; overflow: hidden;
     touch-action: none; cursor: grab;
     border: 1.5px solid rgba(0,229,255,0.35);
     box-shadow: 0 0 16px rgba(0,229,255,0.12) inset;
+    /* Xadrez indicando "transparente" — igual a qualquer editor de
+       imagem, pra ficar claro que a área fora da logo fica vazia,
+       não preta nem branca. */
+    background-image:
+      linear-gradient(45deg, #2a2f38 25%, transparent 25%),
+      linear-gradient(-45deg, #2a2f38 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #2a2f38 75%),
+      linear-gradient(-45deg, transparent 75%, #2a2f38 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    background-color: #1a1e25;
   }
   .logo-crop-viewport.dragging { cursor: grabbing; }
   .logo-crop-viewport img {
@@ -3059,10 +3070,10 @@
       </div>
       <div class="logo-crop-zoom-row">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
-        <input type="range" id="logoCropZoom" min="100" max="400" value="100" step="1">
+        <input type="range" id="logoCropZoom" min="25" max="400" value="100" step="1">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
       </div>
-      <div class="logo-crop-hint">Arraste a imagem pra posicionar</div>
+      <div class="logo-crop-hint">Arraste pra posicionar · zoom livre pra aumentar ou diminuir</div>
       <div class="logo-crop-actions">
         <button type="button" class="logo-crop-btn cancel" id="logoCropCancelBtn">Cancelar</button>
         <button type="button" class="logo-crop-btn confirm" id="logoCropConfirmBtn">✓ Usar este recorte</button>
@@ -8461,11 +8472,14 @@
         outCanvas.height = Math.round(h * scale);
         outCanvas.getContext('2d').drawImage(canvas, 0, 0, outCanvas.width, outCanvas.height);
       }
-      const mime = (mimeOriginal === 'image/png' || mimeOriginal === 'image/svg+xml') ? 'image/png' : 'image/jpeg';
-      const dataUrl = outCanvas.toDataURL(mime, LOGO_QUALITY);
+      // Sempre PNG agora: com edição livre, é comum sobrar espaço vazio
+      // ao redor da logo (ela menor que o quadro) — isso só fica
+      // transparente de verdade em PNG. Em JPEG, a área vazia sairia
+      // preta, o que ficaria feio e não é o que a pessoa pediu.
+      const dataUrl = outCanvas.toDataURL('image/png');
       const sizeKB = Math.round((dataUrl.length * 3) / 4 / 1024);
       if (sizeKB > LOGO_MAX_KB) {
-        callback(null, `Imagem muito grande após compressão (${sizeKB} KB). Use uma imagem menor ou com menos detalhes.`);
+        callback(null, `Imagem muito grande após compressão (${sizeKB} KB). Tente diminuir o zoom ou usar uma imagem mais simples.`);
         return;
       }
       callback(dataUrl, null);
@@ -8481,7 +8495,7 @@
       }
     }
 
-    // ── EDITOR DE RECORTE (zoom + arrastar) ──
+    // ── EDITOR DE RECORTE — EDIÇÃO LIVRE (zoom + arrastar, sem travas) ──
     const cropOverlay  = document.getElementById('logoCropOverlay');
     const cropViewport = document.getElementById('logoCropViewport');
     const cropImg      = document.getElementById('logoCropImg');
@@ -8489,17 +8503,12 @@
     const cropCancelBtn  = document.getElementById('logoCropCancelBtn');
     const cropConfirmBtn = document.getElementById('logoCropConfirmBtn');
 
-    let _cropState = null; // { naturalW, naturalH, baseScale, scale, offX, offY, mime }
+    let _cropState = null; // { naturalW, naturalH, containScale, scale, offX, offY, mime }
 
-    function _clampCropOffset() {
-      const s = _cropState;
-      const vw = cropViewport.clientWidth, vh = cropViewport.clientHeight;
-      const iw = s.naturalW * s.scale, ih = s.naturalH * s.scale;
-      const minX = Math.min(0, vw - iw), minY = Math.min(0, vh - ih);
-      s.offX = Math.max(minX, Math.min(0, s.offX));
-      s.offY = Math.max(minY, Math.min(0, s.offY));
-    }
-
+    // SEM clamp de posição — edição livre de verdade: a pessoa pode
+    // deixar a logo menor que o espaço (com fundo vazio ao redor),
+    // descentralizada, ou até parcialmente fora, se quiser. O único
+    // limite é o zoom (pra não sumir a imagem de vista por completo).
     function _aplicarTransformCrop() {
       const s = _cropState;
       cropImg.style.width  = (s.naturalW * s.scale) + 'px';
@@ -8510,23 +8519,18 @@
 
     function abrirEditorRecorte(img, mime) {
       const vw = cropViewport.clientWidth || 320, vh = cropViewport.clientHeight || 90;
-      const baseScale = Math.max(vw / img.naturalWidth, vh / img.naturalHeight);
-      // Começa com uma folga de 20% acima do "cobrir justo" — no zoom
-      // mínimo exato, uma das direções (largura OU altura, dependendo da
-      // proporção da imagem) fica sem nenhuma sobra pra arrastar. Com
-      // essa folga inicial, sempre dá pra mover nos dois sentidos assim
-      // que o editor abre, sem precisar mexer no zoom primeiro.
-      const zoomInicial = 120;
-      const scaleInicial = baseScale * (zoomInicial / 100);
+      // Referência 100% = imagem inteira visível, cabendo dentro do
+      // espaço (contain) — ponto de partida mais intuitivo pra edição
+      // livre, já que mostra a logo completa antes de qualquer ajuste.
+      const containScale = Math.min(vw / img.naturalWidth, vh / img.naturalHeight);
       _cropState = {
         naturalW: img.naturalWidth, naturalH: img.naturalHeight,
-        baseScale, scale: scaleInicial, mime,
-        offX: (vw - img.naturalWidth * scaleInicial) / 2,
-        offY: (vh - img.naturalHeight * scaleInicial) / 2,
+        containScale, scale: containScale, mime,
+        offX: (vw - img.naturalWidth * containScale) / 2,
+        offY: (vh - img.naturalHeight * containScale) / 2,
       };
       cropImg.src = img.src;
-      cropZoom.value = zoomInicial;
-      _clampCropOffset();
+      cropZoom.value = 100;
       _aplicarTransformCrop();
       cropOverlay.classList.add('open');
     }
@@ -8544,13 +8548,15 @@
       // escalar sempre a partir do canto superior esquerdo.
       const vw = cropViewport.clientWidth, vh = cropViewport.clientHeight;
       const oldScale = s.scale;
-      const novaScale = s.baseScale * (cropZoom.value / 100);
+      // Slider vai de 25% a 400% em cima do "imagem inteira visível" —
+      // dá pra deixar a logo bem pequena (com espaço vazio ao redor) ou
+      // bem próxima (recortando bastante), edição livre nos dois sentidos.
+      const novaScale = s.containScale * (cropZoom.value / 100);
       const cx = (vw / 2 - s.offX) / oldScale;
       const cy = (vh / 2 - s.offY) / oldScale;
       s.scale = novaScale;
       s.offX = vw / 2 - cx * novaScale;
       s.offY = vh / 2 - cy * novaScale;
-      _clampCropOffset();
       _aplicarTransformCrop();
     });
 
@@ -8567,7 +8573,6 @@
       if (!_cropDragging || !_cropState) return;
       _cropState.offX = _cropStartOffX + (e.clientX - _cropStartX);
       _cropState.offY = _cropStartOffY + (e.clientY - _cropStartY);
-      _clampCropOffset();
       _aplicarTransformCrop();
     });
     function _pararDragCrop() { _cropDragging = false; cropViewport.classList.remove('dragging'); }
