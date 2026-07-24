@@ -8511,14 +8511,21 @@
     function abrirEditorRecorte(img, mime) {
       const vw = cropViewport.clientWidth || 320, vh = cropViewport.clientHeight || 90;
       const baseScale = Math.max(vw / img.naturalWidth, vh / img.naturalHeight);
+      // Começa com uma folga de 20% acima do "cobrir justo" — no zoom
+      // mínimo exato, uma das direções (largura OU altura, dependendo da
+      // proporção da imagem) fica sem nenhuma sobra pra arrastar. Com
+      // essa folga inicial, sempre dá pra mover nos dois sentidos assim
+      // que o editor abre, sem precisar mexer no zoom primeiro.
+      const zoomInicial = 120;
+      const scaleInicial = baseScale * (zoomInicial / 100);
       _cropState = {
         naturalW: img.naturalWidth, naturalH: img.naturalHeight,
-        baseScale, scale: baseScale, mime,
-        offX: (vw - img.naturalWidth * baseScale) / 2,
-        offY: (vh - img.naturalHeight * baseScale) / 2,
+        baseScale, scale: scaleInicial, mime,
+        offX: (vw - img.naturalWidth * scaleInicial) / 2,
+        offY: (vh - img.naturalHeight * scaleInicial) / 2,
       };
       cropImg.src = img.src;
-      cropZoom.value = 100;
+      cropZoom.value = zoomInicial;
       _clampCropOffset();
       _aplicarTransformCrop();
       cropOverlay.classList.add('open');
