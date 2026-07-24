@@ -4976,7 +4976,10 @@
     if (role === 'admin' || role === 'sindico') {
       return genero === 'F' ? 'Administradora' : 'Administrador';
     }
-    if (role === 'porteiro') {
+    // CORRIGIDO: a sessão do porteiro usa role:'user' (não 'porteiro',
+    // que nunca existe de verdade em nenhum lugar do app) — por isso
+    // todo porteiro estava caindo no rótulo padrão "Morador".
+    if (role === 'user') {
       return genero === 'F' ? 'Porteira' : 'Porteiro';
     }
     return genero === 'F' ? 'Moradora' : 'Morador';
