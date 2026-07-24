@@ -130,6 +130,50 @@
   .company-logo-wrap.logo-view-only:hover,
   .company-logo-wrap.logo-view-only.has-logo:hover { border-color: rgba(0,229,255,0.2); box-shadow: none; }
   .company-logo-wrap.logo-view-only .company-logo-remove { display: none !important; }
+
+  /* ── EDITOR DE RECORTE DO LOGOTIPO ── */
+  .logo-crop-overlay {
+    display: none; position: fixed; inset: 0; z-index: 99999;
+    background: rgba(0,0,0,0.78); align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .logo-crop-overlay.open { display: flex; }
+  .logo-crop-modal {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px; width: min(94vw, 420px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  .logo-crop-title {
+    font-family: var(--font-display); font-size: 12px; letter-spacing: 1px;
+    color: var(--text); margin-bottom: 14px; text-align: center;
+  }
+  .logo-crop-viewport {
+    position: relative; width: 100%; aspect-ratio: 320 / 90;
+    background: #05070a; border-radius: 10px; overflow: hidden;
+    touch-action: none; cursor: grab;
+    border: 1.5px solid rgba(0,229,255,0.35);
+    box-shadow: 0 0 16px rgba(0,229,255,0.12) inset;
+  }
+  .logo-crop-viewport.dragging { cursor: grabbing; }
+  .logo-crop-viewport img {
+    position: absolute; top: 0; left: 0; transform-origin: 0 0;
+    user-select: none; -webkit-user-drag: none; max-width: none;
+  }
+  .logo-crop-zoom-row {
+    display: flex; align-items: center; gap: 10px; margin-top: 14px; color: var(--text-dim);
+  }
+  .logo-crop-zoom-row input[type="range"] { flex: 1; accent-color: var(--cyan); }
+  .logo-crop-hint {
+    text-align: center; font-size: 10.5px; color: var(--text-dim); margin-top: 6px;
+  }
+  .logo-crop-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .logo-crop-btn {
+    flex: 1; padding: 11px; border-radius: 10px; cursor: pointer;
+    font-family: var(--font-display); font-size: 10px; letter-spacing: 1px;
+    border: 1px solid var(--border); background: transparent; color: var(--text-dim);
+  }
+  .logo-crop-btn.confirm { border-color: var(--cyan); color: var(--cyan); background: rgba(0,229,255,0.08); }
+  .logo-crop-btn.confirm:hover { background: rgba(0,229,255,0.16); }
   .company-logo-placeholder {
     display: flex; flex-direction: column; align-items: center; gap: 5px;
     color: rgba(0,229,255,0.3); pointer-events: none; user-select: none;
@@ -3004,6 +3048,26 @@
       <button class="company-logo-remove" id="companyLogoRemove" style="display: flex;" title="Remover logo" onclick="removerLogoEmpresa(event)">✕</button>
     </div>
     <input type="file" id="companyLogoInput" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+  </div>
+
+  <!-- EDITOR DE RECORTE DO LOGOTIPO (zoom + arrastar antes de salvar) -->
+  <div class="logo-crop-overlay" id="logoCropOverlay">
+    <div class="logo-crop-modal">
+      <div class="logo-crop-title">🖼 Ajustar logotipo ao espaço</div>
+      <div class="logo-crop-viewport" id="logoCropViewport">
+        <img id="logoCropImg" draggable="false" alt="">
+      </div>
+      <div class="logo-crop-zoom-row">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
+        <input type="range" id="logoCropZoom" min="100" max="400" value="100" step="1">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+      </div>
+      <div class="logo-crop-hint">Arraste a imagem pra posicionar</div>
+      <div class="logo-crop-actions">
+        <button type="button" class="logo-crop-btn cancel" id="logoCropCancelBtn">Cancelar</button>
+        <button type="button" class="logo-crop-btn confirm" id="logoCropConfirmBtn">✓ Usar este recorte</button>
+      </div>
+    </div>
   </div>
 
   <!-- HEADER -->
@@ -8381,61 +8445,168 @@
     const LOGO_MAX_H   = 200;   // px altura máxima
     const LOGO_QUALITY = 0.75;  // qualidade JPEG
     const LOGO_MAX_KB  = 200;   // tamanho máximo em KB após compressão (cabe folgado no limite de 1MB por doc do Firestore)
+    const LOGO_ASPECT  = 320 / 90; // mesma proporção da caixa onde o logo aparece (.company-logo-wrap)
+    const LOGO_OUT_W   = 640;   // resolução de saída do recorte (2x pra ficar nítido em telas retina)
+    const LOGO_OUT_H   = Math.round(LOGO_OUT_W / LOGO_ASPECT);
 
-    function comprimirLogo(file, callback) {
-      const reader = new FileReader();
-      reader.onload = function(ev) {
-        const img = new Image();
-        img.onload = function() {
-          // Calcular escala mantendo proporção dentro de LOGO_MAX_W × LOGO_MAX_H
-          let w = img.width, h = img.height;
-          const scaleW = w > LOGO_MAX_W ? LOGO_MAX_W / w : 1;
-          const scaleH = h > LOGO_MAX_H ? LOGO_MAX_H / h : 1;
-          const scale  = Math.min(scaleW, scaleH);
-          w = Math.round(w * scale);
-          h = Math.round(h * scale);
-
-          const canvas = document.createElement('canvas');
-          canvas.width  = w;
-          canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-
-          // Tentar JPEG; para PNG com transparência usar PNG
-          const mime = (file.type === 'image/png' || file.type === 'image/svg+xml')
-            ? 'image/png' : 'image/jpeg';
-          let dataUrl = canvas.toDataURL(mime, LOGO_QUALITY);
-
-          // Verificar tamanho final
-          const sizeKB = Math.round((dataUrl.length * 3) / 4 / 1024);
-          if (sizeKB > LOGO_MAX_KB) {
-            callback(null, `Imagem muito grande após compressão (${sizeKB} KB). Use uma imagem menor ou com menos detalhes.`);
-            return;
-          }
-          callback(dataUrl, null);
-        };
-        img.src = ev.target.result;
-      };
-      reader.readAsDataURL(file);
+    // Recebe um CANVAS já recortado (não mais um File direto) — o
+    // recorte acontece antes, no editor de zoom/arraste.
+    function comprimirCanvasLogo(canvas, mimeOriginal, callback) {
+      let w = canvas.width, h = canvas.height;
+      const scale = Math.min(1, LOGO_MAX_W / w, LOGO_MAX_H / h);
+      let outCanvas = canvas;
+      if (scale < 1) {
+        outCanvas = document.createElement('canvas');
+        outCanvas.width = Math.round(w * scale);
+        outCanvas.height = Math.round(h * scale);
+        outCanvas.getContext('2d').drawImage(canvas, 0, 0, outCanvas.width, outCanvas.height);
+      }
+      const mime = (mimeOriginal === 'image/png' || mimeOriginal === 'image/svg+xml') ? 'image/png' : 'image/jpeg';
+      const dataUrl = outCanvas.toDataURL(mime, LOGO_QUALITY);
+      const sizeKB = Math.round((dataUrl.length * 3) / 4 / 1024);
+      if (sizeKB > LOGO_MAX_KB) {
+        callback(null, `Imagem muito grande após compressão (${sizeKB} KB). Use uma imagem menor ou com menos detalhes.`);
+        return;
+      }
+      callback(dataUrl, null);
     }
+
+    async function _salvarLogoFinal(dataUrl) {
+      aplicarLogo(dataUrl); // feedback imediato, antes do Firestore confirmar
+      try { localStorage.setItem('kv_company_logo', dataUrl); } catch(e) {}
+      try {
+        await _docLogo().set({ logo: dataUrl, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+      } catch(e) {
+        if (typeof mostrarNotif === 'function') mostrarNotif('⚠ Erro ao salvar logo: ' + e.message, 'red');
+      }
+    }
+
+    // ── EDITOR DE RECORTE (zoom + arrastar) ──
+    const cropOverlay  = document.getElementById('logoCropOverlay');
+    const cropViewport = document.getElementById('logoCropViewport');
+    const cropImg      = document.getElementById('logoCropImg');
+    const cropZoom     = document.getElementById('logoCropZoom');
+    const cropCancelBtn  = document.getElementById('logoCropCancelBtn');
+    const cropConfirmBtn = document.getElementById('logoCropConfirmBtn');
+
+    let _cropState = null; // { naturalW, naturalH, baseScale, scale, offX, offY, mime }
+
+    function _clampCropOffset() {
+      const s = _cropState;
+      const vw = cropViewport.clientWidth, vh = cropViewport.clientHeight;
+      const iw = s.naturalW * s.scale, ih = s.naturalH * s.scale;
+      const minX = Math.min(0, vw - iw), minY = Math.min(0, vh - ih);
+      s.offX = Math.max(minX, Math.min(0, s.offX));
+      s.offY = Math.max(minY, Math.min(0, s.offY));
+    }
+
+    function _aplicarTransformCrop() {
+      const s = _cropState;
+      cropImg.style.width  = (s.naturalW * s.scale) + 'px';
+      cropImg.style.height = (s.naturalH * s.scale) + 'px';
+      cropImg.style.left = s.offX + 'px';
+      cropImg.style.top  = s.offY + 'px';
+    }
+
+    function abrirEditorRecorte(img, mime) {
+      const vw = cropViewport.clientWidth || 320, vh = cropViewport.clientHeight || 90;
+      const baseScale = Math.max(vw / img.naturalWidth, vh / img.naturalHeight);
+      _cropState = {
+        naturalW: img.naturalWidth, naturalH: img.naturalHeight,
+        baseScale, scale: baseScale, mime,
+        offX: (vw - img.naturalWidth * baseScale) / 2,
+        offY: (vh - img.naturalHeight * baseScale) / 2,
+      };
+      cropImg.src = img.src;
+      cropZoom.value = 100;
+      _clampCropOffset();
+      _aplicarTransformCrop();
+      cropOverlay.classList.add('open');
+    }
+
+    function fecharEditorRecorte() {
+      cropOverlay.classList.remove('open');
+      cropImg.src = '';
+      _cropState = null;
+    }
+
+    cropZoom.addEventListener('input', function() {
+      if (!_cropState) return;
+      const s = _cropState;
+      // Mantém o centro do viewport ancorado ao dar zoom, em vez de
+      // escalar sempre a partir do canto superior esquerdo.
+      const vw = cropViewport.clientWidth, vh = cropViewport.clientHeight;
+      const oldScale = s.scale;
+      const novaScale = s.baseScale * (cropZoom.value / 100);
+      const cx = (vw / 2 - s.offX) / oldScale;
+      const cy = (vh / 2 - s.offY) / oldScale;
+      s.scale = novaScale;
+      s.offX = vw / 2 - cx * novaScale;
+      s.offY = vh / 2 - cy * novaScale;
+      _clampCropOffset();
+      _aplicarTransformCrop();
+    });
+
+    let _cropDragging = false, _cropStartX = 0, _cropStartY = 0, _cropStartOffX = 0, _cropStartOffY = 0;
+    cropViewport.addEventListener('pointerdown', function(e) {
+      if (!_cropState) return;
+      _cropDragging = true;
+      cropViewport.classList.add('dragging');
+      cropViewport.setPointerCapture(e.pointerId);
+      _cropStartX = e.clientX; _cropStartY = e.clientY;
+      _cropStartOffX = _cropState.offX; _cropStartOffY = _cropState.offY;
+    });
+    cropViewport.addEventListener('pointermove', function(e) {
+      if (!_cropDragging || !_cropState) return;
+      _cropState.offX = _cropStartOffX + (e.clientX - _cropStartX);
+      _cropState.offY = _cropStartOffY + (e.clientY - _cropStartY);
+      _clampCropOffset();
+      _aplicarTransformCrop();
+    });
+    function _pararDragCrop() { _cropDragging = false; cropViewport.classList.remove('dragging'); }
+    cropViewport.addEventListener('pointerup', _pararDragCrop);
+    cropViewport.addEventListener('pointercancel', _pararDragCrop);
+
+    cropCancelBtn.addEventListener('click', fecharEditorRecorte);
+    cropOverlay.addEventListener('click', function(e) { if (e.target === cropOverlay) fecharEditorRecorte(); });
+
+    cropConfirmBtn.addEventListener('click', function() {
+      if (!_cropState) return;
+      const s = _cropState;
+      const vw = cropViewport.clientWidth, vh = cropViewport.clientHeight;
+      // Região visível dentro do viewport, convertida pra coordenadas
+      // (pixels) da imagem original — é exatamente essa parte que vira
+      // o recorte final, na resolução de saída fixa.
+      const sx = -s.offX / s.scale, sy = -s.offY / s.scale;
+      const sw = vw / s.scale, sh = vh / s.scale;
+      const outCanvas = document.createElement('canvas');
+      outCanvas.width = LOGO_OUT_W; outCanvas.height = LOGO_OUT_H;
+      outCanvas.getContext('2d').drawImage(cropImg, sx, sy, sw, sh, 0, 0, LOGO_OUT_W, LOGO_OUT_H);
+      const mime = s.mime;
+      fecharEditorRecorte();
+      comprimirCanvasLogo(outCanvas, mime, function(dataUrl, erro) {
+        if (erro) {
+          if (typeof mostrarNotif === 'function') mostrarNotif('⚠ ' + erro, 'red');
+          return;
+        }
+        _salvarLogoFinal(dataUrl);
+      });
+    });
 
     input.addEventListener('change', function() {
       const file = this.files[0];
       if (!file) return;
       this.value = '';
-
-      comprimirLogo(file, async function(dataUrl, erro) {
-        if (erro) {
-          if (typeof mostrarNotif === 'function') mostrarNotif('⚠ ' + erro, 'red');
-          return;
-        }
-        aplicarLogo(dataUrl); // feedback imediato, antes do Firestore confirmar
-        try { localStorage.setItem('kv_company_logo', dataUrl); } catch(e) {}
-        try {
-          await _docLogo().set({ logo: dataUrl, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
-        } catch(e) {
-          if (typeof mostrarNotif === 'function') mostrarNotif('⚠ Erro ao salvar logo: ' + e.message, 'red');
-        }
-      });
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const img = new Image();
+        img.onload = function() { abrirEditorRecorte(img, file.type); };
+        img.onerror = function() {
+          if (typeof mostrarNotif === 'function') mostrarNotif('⚠ Não foi possível abrir essa imagem.', 'red');
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
     });
 
     // ── TOQUE LONGO para excluir logotipo ──
