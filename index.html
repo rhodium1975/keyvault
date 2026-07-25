@@ -5261,8 +5261,11 @@
         <div class="usermgmt-section-title">➕ Convidar novo morador</div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
           <input type="text" id="admMoradorNome" placeholder="Nome do morador" class="login-input" style="width:100%;">
-          <input type="text" id="admMoradorApto" placeholder="Apartamento" class="login-input" style="width:100%;">
-          <input type="text" id="admMoradorBloco" placeholder="Bloco (opcional)" class="login-input" style="width:100%;">
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="admMoradorApto" placeholder="Apto" class="login-input" style="flex:1;min-width:0;">
+            <input type="text" id="admMoradorBloco" placeholder="Bloco (opc.)" class="login-input" style="flex:1;min-width:0;">
+          </div>
+          <input type="text" id="admMoradorVaga" placeholder="Vaga de estacionamento (opcional)" class="login-input" style="width:100%;">
           <input type="tel" id="admMoradorTelefone" placeholder="Telefone com DDD (ex: 11987654321)" class="login-input" style="width:100%;" oninput="mascararCelular(this)" maxlength="15">
           <button type="button" onclick="adminCadastrarMoradorFirebase()" class="login-btn" style="width:100%;">+ CADASTRAR MORADOR</button>
           <div id="admMoradorResultado" style="display:none;font-size:12px;font-family:var(--font-display);letter-spacing:0.5px;padding:8px;border-radius:8px;"></div>
@@ -5297,6 +5300,7 @@
             <div class="user-entry-name">${sanitizeHTML(m.nome)}</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
               <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:rgba(213,0,249,0.1);border:1px solid rgba(213,0,249,0.35);color:var(--purple);">Apto ${sanitizeHTML(m.apto)}${m.bloco ? ' / Bloco '+sanitizeHTML(m.bloco) : ''}</span>
+              ${m.vaga ? `<span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.35);color:var(--cyan);">🚗 Vaga ${sanitizeHTML(m.vaga)}</span>` : ''}
               <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:${m.status==='ativo'?'rgba(0,230,118,0.1)':'rgba(255,171,0,0.1)'};border:1px solid ${m.status==='ativo'?'rgba(0,230,118,0.35)':'rgba(255,171,0,0.35)'};color:${m.status==='ativo'?'var(--green)':'var(--amber)'};">${m.status === 'ativo' ? '✓ Ativo' : '⏳ Aguardando'} ${m.status !== 'ativo' ? '— Código: '+sanitizeHTML(m.codigoConvite) : ''}</span>
             </div>
             <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${sanitizeHTML(m.email)}</div>
@@ -8894,7 +8898,7 @@
       const _sessao = window.KV_AUTH && window.KV_AUTH.isLoggedIn() ? {
         role: window.KV_AUTH.getRole(),
         displayName: window.KV_AUTH.getDisplayName(),
-        apto: (JSON.parse(localStorage.getItem('kv_auth_session_v1') || '{}').apto || '')
+        apto: (JSON.parse(sessionStorage.getItem('kv_auth_session_v1') || '{}').apto || '')
       } : null;
       const isMorador = _sessao && _sessao.role === 'morador';
       const podeRestaurar = _sessao && (_sessao.role === 'sindico' || _sessao.role === 'user');
@@ -8997,7 +9001,7 @@
       const _sessao = window.KV_AUTH && window.KV_AUTH.isLoggedIn() ? {
         role: window.KV_AUTH.getRole(),
         displayName: window.KV_AUTH.getDisplayName(),
-        apto: (JSON.parse(localStorage.getItem('kv_auth_session_v1') || '{}').apto || '')
+        apto: (JSON.parse(sessionStorage.getItem('kv_auth_session_v1') || '{}').apto || '')
       } : null;
       const _isMorador = _sessao && _sessao.role === 'morador';
 
@@ -9501,7 +9505,7 @@
       const _sess = window.KV_AUTH && window.KV_AUTH.isLoggedIn() ? {
         role: window.KV_AUTH.getRole(),
         displayName: window.KV_AUTH.getDisplayName(),
-        apto: (JSON.parse(localStorage.getItem('kv_auth_session_v1') || '{}').apto || '')
+        apto: (JSON.parse(sessionStorage.getItem('kv_auth_session_v1') || '{}').apto || '')
       } : null;
       let pendentes;
       if (_sess && _sess.role === 'morador') {
@@ -9576,7 +9580,7 @@
       const role = window.KV_AUTH ? window.KV_AUTH.getRole() : null;
       if (role !== 'morador') return;
       const displayName = window.KV_AUTH.getDisplayName() || '';
-      const apto = (JSON.parse(localStorage.getItem('kv_auth_session_v1') || '{}').apto || '');
+      const apto = (JSON.parse(sessionStorage.getItem('kv_auth_session_v1') || '{}').apto || '');
       const nomeEnc  = (enc.destinatario || '').toLowerCase().trim();
       const nomeUser = displayName.toLowerCase().trim();
       const aptoEnc  = (enc.apto || '').toLowerCase().trim();
@@ -11111,7 +11115,7 @@ const kvEnquetes = (() => {
     if (!anonima) {
       dados.nome = (window.KV_AUTH && KV_AUTH.getDisplayName()) || '';
       try {
-        const sess = JSON.parse(localStorage.getItem('kv_auth_session_v1') || '{}');
+        const sess = JSON.parse(sessionStorage.getItem('kv_auth_session_v1') || '{}');
         if (sess.apto) dados.apto = sess.apto;
       } catch(err) {}
     }
@@ -11268,13 +11272,13 @@ const kvMoradores = (() => {
     return codigo;
   }
 
-  async function cadastrarMorador({ nome, apto, bloco, telefone }) {
+  async function cadastrarMorador({ nome, apto, bloco, vaga, telefone }) {
     if (!nome || !apto) throw new Error('Nome e apto são obrigatórios.');
     if (!telefone) throw new Error('Telefone é obrigatório.');
     const condominioId = condominioIdAtivo();
     const codigoConvite = gerarCodigoConvite();
     const ref = await colMoradores().add({
-      nome, apto, bloco: bloco || '',
+      nome, apto, bloco: bloco || '', vaga: vaga || '',
       telefone: telefone.trim(),
       // "email" não é mais preenchido aqui pelo síndico — o próprio
       // morador digita o dele no primeiro acesso (evita conta presa a um
@@ -13156,6 +13160,7 @@ async function adminCadastrarMoradorFirebase() {
     const nome     = document.getElementById('admMoradorNome').value.trim();
     const apto     = document.getElementById('admMoradorApto').value.trim();
     const bloco    = document.getElementById('admMoradorBloco').value.trim();
+    const vaga     = document.getElementById('admMoradorVaga').value.trim();
     const telefone = document.getElementById('admMoradorTelefone').value.trim();
 
     if (!telefone) {
@@ -13171,7 +13176,7 @@ async function adminCadastrarMoradorFirebase() {
       return;
     }
 
-    const { codigoConvite } = await kvMoradores.cadastrarMorador({ nome, apto, bloco, telefone });
+    const { codigoConvite } = await kvMoradores.cadastrarMorador({ nome, apto, bloco, vaga, telefone });
 
     // Monta o link do WhatsApp com o convite já pronto: código de acesso + link do app.
     const linkApp = window.location.origin + window.location.pathname;
@@ -13191,6 +13196,7 @@ async function adminCadastrarMoradorFirebase() {
     document.getElementById('admMoradorNome').value = '';
     document.getElementById('admMoradorApto').value = '';
     document.getElementById('admMoradorBloco').value = '';
+    document.getElementById('admMoradorVaga').value = '';
     document.getElementById('admMoradorTelefone').value = '';
   } catch (e) {
     resEl.style.display = 'block';
