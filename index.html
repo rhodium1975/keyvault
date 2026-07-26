@@ -13185,8 +13185,12 @@ async function adminCadastrarMoradorFirebase() {
     const nomeCondominio = (window.KV_AUTH && KV_AUTH.getCondominioNome) ? KV_AUTH.getCondominioNome() : 'seu condomínio';
     const foneDigits = telefone.replace(/\D/g, '');
     const foneComDDI = foneDigits.length <= 11 ? '55' + foneDigits : foneDigits; // assume Brasil se vier só DDD+número
-    const mensagem = `Olá, ${nome}! Você foi cadastrado(a) no KeyVault (app do ${nomeCondominio}).%0A%0A📲 Acesse: ${linkApp}%0A🔑 Seu código de convite: *${codigoConvite}*%0A%0AClique em "SOU MORADOR" > "PRIMEIRO ACESSO", digite o código, o SEU e-mail e crie uma senha.`;
-    const linkWhatsApp = `https://wa.me/${foneComDDI}?text=${mensagem}`;
+    const mensagem = `Olá, ${nome}! Você foi cadastrado(a) no KeyVault (app do ${nomeCondominio}).\n\n📲 Acesse: ${linkApp}\n🔑 Seu código de convite: *${codigoConvite}*\n\nClique em "SOU MORADOR" > "PRIMEIRO ACESSO", digite o código, o SEU e-mail e crie uma senha.`;
+    // CORRIGIDO: faltava encodeURIComponent aqui — sem ele, as aspas
+    // dentro da mensagem (em "SOU MORADOR" e "PRIMEIRO ACESSO") fechavam
+    // o atributo href="..." mais cedo do que deveria, quebrando o HTML e
+    // fazendo o botão aparecer como link azul cru em vez do botão verde.
+    const linkWhatsApp = `https://wa.me/${foneComDDI}?text=${encodeURIComponent(mensagem)}`;
 
     resEl.style.display = 'block';
     resEl.style.background = 'rgba(255,23,68,0.12)';
@@ -13236,14 +13240,14 @@ async function adminCadastrarPorteiroFirebase() {
     const nomeCondominio = (window.KV_AUTH && KV_AUTH.getCondominioNome) ? KV_AUTH.getCondominioNome() : 'seu condomínio';
     const foneDigits = telefone.replace(/\D/g, '');
     const foneComDDI = foneDigits.length <= 11 ? '55' + foneDigits : foneDigits;
-    const mensagem = `Olá, ${nome}! Você foi cadastrado(a) como porteiro no KeyVault (app do ${nomeCondominio}).%0A%0A📲 Acesse: ${linkApp}%0A🔑 Seu código de convite: *${codigoConvite}*%0A%0AClique em "SOU PORTEIRO" na tela inicial, vá em "PRIMEIRO ACESSO", digite o código, o SEU e-mail e crie uma senha.`;
-    const linkWhatsApp = `https://wa.me/${foneComDDI}?text=${mensagem}`;
+    const mensagem = `Olá, ${nome}! Você foi cadastrado(a) como porteiro no KeyVault (app do ${nomeCondominio}).\n\n📲 Acesse: ${linkApp}\n🔑 Seu código de convite: *${codigoConvite}*\n\nClique em "SOU PORTEIRO" na tela inicial, vá em "PRIMEIRO ACESSO", digite o código, o SEU e-mail e crie uma senha.`;
+    const linkWhatsApp = `https://wa.me/${foneComDDI}?text=${encodeURIComponent(mensagem)}`;
 
     resEl.style.display = 'block';
-    resEl.style.background = 'rgba(0,229,255,0.12)';
-    resEl.style.border = '1px solid var(--cyan)';
-    resEl.style.color = 'var(--cyan)';
-    resEl.innerHTML = `✓ Cadastrado! Código de convite: <b>${codigoConvite}</b><br><br>
+    resEl.style.background = 'rgba(255,23,68,0.12)';
+    resEl.style.border = '2px solid var(--red)';
+    resEl.style.color = 'var(--red)';
+    resEl.innerHTML = `⚠️ <b>Cadastrado! Código de convite: ${codigoConvite}</b><br><br>
       <a href="${linkWhatsApp}" target="_blank" rel="noopener" style="display:inline-block;background:#25D366;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-family:var(--font-display);letter-spacing:0.5px;">📲 Enviar convite pelo WhatsApp</a>`;
 
     document.getElementById('admPorteiroNome').value = '';
