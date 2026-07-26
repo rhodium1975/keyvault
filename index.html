@@ -13189,10 +13189,10 @@ async function adminCadastrarMoradorFirebase() {
     const linkWhatsApp = `https://wa.me/${foneComDDI}?text=${mensagem}`;
 
     resEl.style.display = 'block';
-    resEl.style.background = 'rgba(0,229,255,0.12)';
-    resEl.style.border = '1px solid var(--cyan)';
-    resEl.style.color = 'var(--cyan)';
-    resEl.innerHTML = `✓ Cadastrado! Código de convite: <b>${codigoConvite}</b><br><br>
+    resEl.style.background = 'rgba(255,23,68,0.12)';
+    resEl.style.border = '2px solid var(--red)';
+    resEl.style.color = 'var(--red)';
+    resEl.innerHTML = `⚠️ <b>Cadastrado! Código de convite: ${codigoConvite}</b><br><br>
       <a href="${linkWhatsApp}" target="_blank" rel="noopener" style="display:inline-block;background:#25D366;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-family:var(--font-display);letter-spacing:0.5px;">📲 Enviar convite pelo WhatsApp</a>`;
 
     document.getElementById('admMoradorNome').value = '';
