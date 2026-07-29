@@ -2010,6 +2010,7 @@
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     padding: 24px;
+    overflow-y: auto;
   }
   .login-screen.hidden { display: none; }
   .login-screen::before {
@@ -2036,6 +2037,15 @@
     position: relative; z-index: 1;
     box-shadow: 0 0 60px rgba(0,229,255,0.08), 0 20px 60px rgba(0,0,0,0.5);
     animation: scaleIn 0.35s cubic-bezier(.22,.68,0,1.2);
+    /* CORRIGIDO: sem isso, quando os painéis de primeiro acesso (código +
+       e-mail + senha + botão) deixavam o cartão mais alto que a tela do
+       celular, a parte de baixo ficava cortada, sem nenhum jeito de
+       rolar até ela — a tela de login inteira era "position: fixed",
+       então nem o scroll da página ajudava. Agora o próprio cartão
+       ganha um teto de altura e rolagem interna quando necessário. */
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    margin: 24px 0;
   }
   .login-box::before {
     content: ''; display: block; height: 2px;
