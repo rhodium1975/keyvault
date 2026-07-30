@@ -5,7 +5,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <!-- ── QR CODE: geração (mostrar) + leitura (escanear) ── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyAjyqGSCEX8KHnXkcer-mSifZShP5zXV8U",
@@ -9993,6 +9993,16 @@
       noSupport.style.display = 'none';
       video.style.display = 'block';
       document.getElementById('encQRScanOverlay').classList.add('open');
+
+      // Se a biblioteca de leitura não carregou (rede, bloqueador de
+      // script, etc.), a câmera abriria normal mas nunca reconheceria
+      // nada — deixando a impressão de "travado". Avisa na hora, em vez
+      // de deixar a pessoa esperando pra sempre.
+      if (typeof jsQR === 'undefined') {
+        status.textContent = '⚠ Não foi possível carregar o leitor de QR agora. Verifique sua conexão e tente de novo.';
+        status.style.color = 'var(--red)';
+        return;
+      }
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         noSupport.style.display = 'block';
