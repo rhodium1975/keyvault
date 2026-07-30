@@ -3,6 +3,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<!-- ── QR CODE: geração (mostrar) + leitura (escanear) ── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyAjyqGSCEX8KHnXkcer-mSifZShP5zXV8U",
@@ -3206,6 +3209,10 @@
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           Registrar
         </button>
+        <button id="encBtnEscanearQR" class="enc-add-btn" onclick="window.encAbrirScannerQR()" style="flex:1;min-width:0;justify-content:center;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 012-2h2"></path><path d="M17 3h2a2 2 0 012 2v2"></path><path d="M21 17v2a2 2 0 01-2 2h-2"></path><path d="M7 21H5a2 2 0 01-2-2v-2"></path><rect x="7" y="7" width="10" height="10" rx="1"></rect></svg>
+          Escanear QR
+        </button>
       </div>
     </div>
     <div class="enc-list-wrap" id="encListWrap">
@@ -4603,6 +4610,46 @@
     <div class="enc-ret-footer">
       <button class="btn-cancel" onclick="fecharEncRet()">Cancelar</button>
       <button class="btn-action cyan" onclick="confirmarEncRet()">✔ Confirmar Retirada</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOSTRAR QR (morador) -->
+<div class="enc-ret-overlay" id="encQRMostrarOverlay">
+  <div class="enc-ret-modal">
+    <div class="enc-ret-handle"></div>
+    <div class="enc-ret-head">
+      <div class="enc-ret-title">📱 QR da sua encomenda</div>
+    </div>
+    <div class="enc-ret-body" style="text-align:center;">
+      <div id="encQRInfo" style="font-size:12px;color:var(--text-dim);margin-bottom:14px;"></div>
+      <div id="encQRCodeContainer" style="display:inline-block;background:#fff;padding:14px;border-radius:12px;"></div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:14px;">Mostre esse código pro porteiro na hora de retirar</div>
+    </div>
+    <div class="enc-ret-footer">
+      <button class="btn-cancel" onclick="window.encFecharQR()" style="flex:1;">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ESCANEAR QR (porteiro/síndico) -->
+<div class="enc-ret-overlay" id="encQRScanOverlay">
+  <div class="enc-ret-modal">
+    <div class="enc-ret-handle"></div>
+    <div class="enc-ret-head">
+      <div class="enc-ret-title">📷 Escanear QR da encomenda</div>
+    </div>
+    <div class="enc-ret-body">
+      <div style="position:relative;width:100%;aspect-ratio:1/1;background:#000;border-radius:12px;overflow:hidden;">
+        <video id="encQRScanVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+        <div style="position:absolute;inset:14%;border:2.5px solid var(--cyan);border-radius:14px;box-shadow:0 0 0 999px rgba(0,0,0,0.35);pointer-events:none;"></div>
+        <canvas id="encQRScanCanvas" style="display:none;"></canvas>
+      </div>
+      <div id="encQRScanStatus" style="text-align:center;font-size:12px;color:var(--text-dim);margin-top:12px;">Aponte a câmera pro QR code da encomenda</div>
+      <div id="encQRScanNoSupport" style="display:none;text-align:center;font-size:12px;color:var(--red);margin-top:12px;">Não foi possível acessar a câmera. Verifique a permissão do navegador.</div>
+    </div>
+    <div class="enc-ret-footer">
+      <button class="btn-cancel" onclick="window.encFecharScannerQR()" style="flex:1;">Cancelar</button>
     </div>
   </div>
 </div>
@@ -9019,6 +9066,8 @@
       // Ocultar botão "Registrar" para moradores
       const _btnRegistrar = document.getElementById('encBtnRegistrar');
       if (_btnRegistrar) _btnRegistrar.style.display = _isMorador ? 'none' : '';
+      const _btnEscanearQR = document.getElementById('encBtnEscanearQR');
+      if (_btnEscanearQR) _btnEscanearQR.style.display = _isMorador ? 'none' : '';
 
       // Ocultar campo de busca por destinatário para moradores (eles só veem as próprias)
       const _buscaWrap = document.getElementById('encBuscaWrap');
@@ -9087,7 +9136,10 @@
           ${!entregue ? `
           <div class="enc-actions">
             ${_isMorador ? `
-            <div style="font-family:var(--font-display);font-size:9px;letter-spacing:1.5px;color:var(--text-dim);padding:4px 2px;text-transform:uppercase;">Aguardando retirada na portaria</div>
+            <div style="font-family:var(--font-display);font-size:9px;letter-spacing:1.5px;color:var(--text-dim);padding:4px 2px 6px;text-transform:uppercase;">Aguardando retirada na portaria</div>
+            <button class="enc-btn enc-btn-retirar enc-btn-sm" onclick="window.encMostrarQR('${enc.id}')">
+              📱 Mostrar QR pra retirar
+            </button>
             ` : `
             <button class="enc-btn enc-btn-retirar enc-btn-sm" onclick="window.encAbrirRetirada('${enc.id}')">
               ✅ Recebida
@@ -9902,6 +9954,118 @@
     document.getElementById('encRetOverlay').addEventListener('click', function(e) {
       if (e.target === this) fecharEncRet();
     });
+
+    // ── QR CODE: mostrar (morador) ──
+    // O conteúdo do QR é só o ID do documento no Firestore — já é uma
+    // string longa e aleatória (gerada pelo próprio Firestore), então
+    // não precisa de nenhum segredo extra pra ser difícil de adivinhar.
+    window.encMostrarQR = function(id) {
+      const enc = encomendas.find(e => e.id === id);
+      if (!enc) return;
+      const container = document.getElementById('encQRCodeContainer');
+      container.innerHTML = ''; // limpa QR anterior, se houver
+      if (typeof QRCode === 'undefined') {
+        container.innerHTML = '<div style="color:#c00;font-size:12px;padding:20px;">Não foi possível carregar o gerador de QR agora. Verifique sua conexão.</div>';
+      } else {
+        new QRCode(container, { text: enc.id, width: 200, height: 200, colorDark: '#0a0e14', colorLight: '#ffffff' });
+      }
+      document.getElementById('encQRInfo').textContent =
+        `Apto ${enc.apto}${enc.destinatario ? ' — ' + enc.destinatario : ''}`;
+      document.getElementById('encQRMostrarOverlay').classList.add('open');
+    };
+    window.encFecharQR = function() {
+      document.getElementById('encQRMostrarOverlay').classList.remove('open');
+    };
+    document.getElementById('encQRMostrarOverlay').addEventListener('click', function(e) {
+      if (e.target === this) window.encFecharQR();
+    });
+
+    // ── QR CODE: escanear (porteiro/síndico) ──
+    let _qrScanStream = null;
+    let _qrScanLoopId = null;
+
+    window.encAbrirScannerQR = function() {
+      const video = document.getElementById('encQRScanVideo');
+      const noSupport = document.getElementById('encQRScanNoSupport');
+      const status = document.getElementById('encQRScanStatus');
+      status.textContent = 'Aponte a câmera pro QR code da encomenda';
+      status.style.color = '';
+      noSupport.style.display = 'none';
+      video.style.display = 'block';
+      document.getElementById('encQRScanOverlay').classList.add('open');
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        noSupport.style.display = 'block';
+        video.style.display = 'none';
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+        .then(stream => {
+          _qrScanStream = stream;
+          video.srcObject = stream;
+          video.play();
+          _qrScanLoop();
+        })
+        .catch(() => {
+          noSupport.style.display = 'block';
+          video.style.display = 'none';
+        });
+    };
+
+    function _qrScanLoop() {
+      const video = document.getElementById('encQRScanVideo');
+      const canvas = document.getElementById('encQRScanCanvas');
+      if (!_qrScanStream) return; // já foi fechado
+      if (video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR !== 'undefined') {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const codigo = jsQR(imageData.data, imageData.width, imageData.height);
+        if (codigo && codigo.data) {
+          _qrScanOnResult(codigo.data);
+          return; // não agenda o próximo frame — já vamos fechar o scanner
+        }
+      }
+      _qrScanLoopId = requestAnimationFrame(_qrScanLoop);
+    }
+
+    function _qrScanOnResult(encomendaId) {
+      const status = document.getElementById('encQRScanStatus');
+      const enc = encomendas.find(e => e.id === encomendaId);
+      if (!enc) {
+        status.textContent = '⚠ QR não corresponde a nenhuma encomenda conhecida. Tente de novo.';
+        status.style.color = 'var(--red)';
+        _qrScanLoopId = requestAnimationFrame(_qrScanLoop);
+        return;
+      }
+      if (enc.status === 'entregue') {
+        status.textContent = `⚠ Essa encomenda (Apto ${enc.apto}) já foi marcada como entregue.`;
+        status.style.color = 'var(--red)';
+        _qrScanLoopId = requestAnimationFrame(_qrScanLoop);
+        return;
+      }
+      // Achou uma encomenda pendente válida — fecha o scanner e abre a
+      // confirmação de retirada já com essa encomenda selecionada
+      // (o porteiro ainda confirma o nome de quem retirou, não pula
+      // essa etapa só por causa do QR).
+      window.encFecharScannerQR();
+      window.encAbrirRetirada(encomendaId);
+      if (typeof mostrarNotif === 'function') mostrarNotif(`📷 QR lido — Apto ${enc.apto}`, 'purple');
+    }
+
+    window.encFecharScannerQR = function() {
+      if (_qrScanLoopId) { cancelAnimationFrame(_qrScanLoopId); _qrScanLoopId = null; }
+      if (_qrScanStream) { _qrScanStream.getTracks().forEach(t => t.stop()); _qrScanStream = null; }
+      document.getElementById('encQRScanOverlay').classList.remove('open');
+    };
+    document.getElementById('encQRScanOverlay').addEventListener('click', function(e) {
+      if (e.target === this) window.encFecharScannerQR();
+    });
+    // Segurança extra: se a pessoa deslogar com o scanner aberto, a
+    // câmera não pode continuar ligada em segundo plano.
+    document.addEventListener('kv-logout', function() { window.encFecharScannerQR(); });
 
     window.encNotificar = function(id) {
       const enc = encomendas.find(e => e.id === id);
