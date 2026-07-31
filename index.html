@@ -12629,6 +12629,18 @@ const kvVisitantes = (() => {
     }
   }
 
+  // ── Remover um visitante da lista (a lista continua existindo com o
+  //    restante das pessoas — só esse documento específico é apagado) ──
+  async function removerVisitante(id, nome) {
+    if (!confirm(`Remover "${nome}" da lista de visitantes?`)) return;
+    try {
+      await colVisitantes().doc(id).delete();
+      await renderVisitantes();
+    } catch (e) {
+      alert('Erro ao remover visitante: ' + e.message);
+    }
+  }
+
   // ── Editar a data agendada de uma lista inteira (todos os visitantes dela) ──
   function iniciarEdicaoData(listaId) {
     window._visitEditandoData = listaId;
@@ -12684,7 +12696,7 @@ const kvVisitantes = (() => {
     colNotificacoesPorteiro, condominioIdAtivo, toggleForm, toggleLista,
     adicionarPessoaALista, abrirFormAdicionar, fecharFormAdicionar,
     iniciarEdicaoNome, cancelarEdicaoNome, salvarNomeVisitante,
-    iniciarEdicaoData, cancelarEdicaoData, salvarDataLista
+    iniciarEdicaoData, cancelarEdicaoData, salvarDataLista, removerVisitante
   };
 })();
 
@@ -12816,7 +12828,10 @@ function _visitCardLista(listaId, itens, opts = {}) {
     return `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
         <span style="font-size:13px;color:var(--text);">${sanitizeHTML(v.nome)}</span>
-        ${podeEditar ? `<span onclick="event.stopPropagation();kvVisitantes.iniciarEdicaoNome('${v.id}')" style="cursor:pointer;font-size:12px;color:var(--text-dim);padding:2px 6px;" title="Editar nome">✎</span>` : ''}
+        ${podeEditar ? `<span style="display:flex;gap:2px;flex-shrink:0;">
+          <span onclick="event.stopPropagation();kvVisitantes.iniciarEdicaoNome('${v.id}')" style="cursor:pointer;font-size:12px;color:var(--text-dim);padding:2px 6px;" title="Editar nome">✎</span>
+          <span onclick="event.stopPropagation();kvVisitantes.removerVisitante('${v.id}','${(v.nome || '').replace(/'/g, "\\'")}')" style="cursor:pointer;font-size:12px;color:var(--red);padding:2px 6px;" title="Remover da lista">✕</span>
+        </span>` : ''}
       </div>`;
   }).join('');
 
