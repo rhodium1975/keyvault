@@ -5007,6 +5007,7 @@
     getRole:        () => _session ? _session.role : null,
     getUsername:    () => _session ? _session.username : null,
     getDisplayName: () => _session ? _session.displayName : null,
+    getApto:        () => _session ? (_session.apto || null) : null,
     getCondominioId:() => _session ? _session.condominioId : null,
     saveSession,
     clearSession,
@@ -12445,12 +12446,16 @@ const kvVisitantes = (() => {
       const areaChaveId = areaSelect ? areaSelect.value : '';
 
       const moradorId = KV_AUTH.getUsername();
-      const moradorSnap = await firebase.firestore()
-        .collection('condominios').doc(condominioIdAtivo())
-        .collection('moradores').doc(moradorId).get();
-      const moradorData = moradorSnap.data() || {};
-      const moradorNome = moradorData.nome || KV_AUTH.getDisplayName();
-      const apto = moradorData.apto || '';
+      // CORRIGIDO: antes buscava o documento do morador direto no
+      // Firestore aqui — se o "moradorId" salvo na sessão não batesse
+      // exatamente com o ID do documento (podia acontecer em contas
+      // ativadas antes de algum ajuste anterior), a leitura vinha vazia
+      // e a regra negava o acesso ("Missing or insufficient
+      // permissions"), travando a criação da lista inteira. Nome e apto
+      // já estão guardados na própria sessão desde o login — não
+      // precisa buscar de novo no Firestore pra isso.
+      const moradorNome = KV_AUTH.getDisplayName() || '';
+      const apto = KV_AUTH.getApto() || '';
       const listaId = 'lst_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 
       const batch = firebase.firestore().batch();
@@ -12891,8 +12896,9 @@ function renderVisitantesHTML(lista) {
   const role = window.KV_AUTH ? KV_AUTH.getRole() : null;
   const mostrarMorador = role !== 'morador';
   const podeAdicionar = role === 'morador';
-  // Edição de nome/data: o próprio morador dono da lista, ou a equipe (admin/síndico/porteiro).
-  const podeEditar = role === 'morador' || (window.kvVisitantes && kvVisitantes.ehEquipe());
+  // Só o próprio morador dono da lista edita/adiciona/remove — síndico e
+  // porteiro só acompanham (visualização), a pedido explícito do cliente.
+  const podeEditar = role === 'morador';
 
   const hojeStr = new Date().toLocaleDateString('pt-BR');
   const grupos = _visitAgruparPorLista(lista);
