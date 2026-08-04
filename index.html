@@ -5886,7 +5886,7 @@
         customCats,
         deletedFixedCats: [...deletedFixedCats],
         customTabs,
-        encomendas: (function(){ try { return JSON.parse(localStorage.getItem('kv_encomendas')||'[]'); } catch(e){ return []; } })(),
+        encomendas: (function(){ try { return JSON.parse(sessionStorage.getItem('kv_encomendas')||'[]'); } catch(e){ return []; } })(),
         companyLogo: (function(){ try { return localStorage.getItem('kv_company_logo')||null; } catch(e){ return null; } })(),
       };
       const jsonStr = JSON.stringify(payload);
@@ -8826,13 +8826,20 @@
     }
 
     // Cache local: só pra tela não ficar vazia por 1 frame no primeiro load.
+    // CORRIGIDO (achado de auditoria): esse cache morava em localStorage,
+    // que nunca expira sozinho — num computador compartilhado da
+    // portaria, dados de encomendas (inclusive fotos) ficavam presos no
+    // navegador mesmo depois da pessoa só fechar a aba sem clicar em
+    // "Sair". Trocado pra sessionStorage, que já limpa sozinho ao fechar
+    // a aba/navegador — mesmo padrão que a própria sessão de login usa.
+    try { localStorage.removeItem('kv_encomendas'); } catch(e) {} // limpa resíduo de antes desta correção
     function salvarStorage() {
-      try { localStorage.setItem('kv_encomendas', JSON.stringify(encomendas)); } catch(e) {}
+      try { sessionStorage.setItem('kv_encomendas', JSON.stringify(encomendas)); } catch(e) {}
     }
 
     // Carrega o cache local imediatamente (antes do Firestore responder)
     try {
-      const saved = localStorage.getItem('kv_encomendas');
+      const saved = sessionStorage.getItem('kv_encomendas');
       if (saved) encomendas = JSON.parse(saved);
     } catch(e) { encomendas = []; }
 
@@ -8875,11 +8882,28 @@
       const condominioId = _condominioIdEnc();
       if (!condominioId) return;
       _primeiraSnapshotEnc = true;
+
+      // CORRIGIDO (achado de auditoria): antes, TODO mundo — inclusive
+      // morador — baixava a lista INTEIRA de encomendas do condomínio do
+      // Firestore, e o "só vejo as minhas" era só um filtro na tela.
+      // Qualquer morador conseguia ver nome, apto, descrição e foto de
+      // encomendas de outros apartamentos direto pelo console do
+      // navegador. Agora o morador só recebe do servidor as encomendas
+      // do PRÓPRIO apto — o resto nem chega no navegador dele.
+      const role = window.KV_AUTH ? KV_AUTH.getRole() : null;
+      const aptoMorador = role === 'morador' ? (KV_AUTH.getApto() || '') : null;
+      const souMorador = role === 'morador' && !!aptoMorador;
+
+      // Sem orderBy junto do where aqui de propósito: misturar os dois
+      // em campos diferentes exigiria criar um índice composto no
+      // Firestore antes de funcionar. Mais simples ordenar no JS abaixo.
+      let query = souMorador ? _colEncomendas().where('apto', '==', aptoMorador) : _colEncomendas().orderBy('ts', 'desc');
+
       try {
-        _unsubEncomendas = _colEncomendas()
-          .orderBy('ts', 'desc')
+        _unsubEncomendas = query
           .onSnapshot(function(snap) {
             encomendas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            if (souMorador) encomendas.sort((a, b) => (b.ts || 0) - (a.ts || 0));
             salvarStorage();
             renderEncomendas();
             if (typeof atualizarEncBadge === 'function') atualizarEncBadge();
@@ -9797,8 +9821,16 @@
     };
 
     // ── MODAL FALTANDO ──
+    // Guarda o ID da encomenda original quando o modal de faltante é
+    // aberto A PARTIR de um card já existente (encMarcarFaltante) — usado
+    // em salvarFaltante() pra decidir entre ATUALIZAR esse registro ou
+    // criar um novo (fluxo de reportar uma encomenda que nunca chegou a
+    // ser registrada, via abrirFaltante()).
+    let _faltanteEncId = null;
+
     window.abrirFaltante = function(e) {
       if (e) e.stopPropagation();
+      _faltanteEncId = null; // relatando algo sem encomenda existente associada
       document.getElementById('faltanteApto').value = '';
       document.getElementById('faltanteDesc').value = '';
       document.getElementById('faltanteEncDesc').value = '';
@@ -9808,6 +9840,7 @@
 
 
     window.fecharFaltante = function() {
+      _faltanteEncId = null;
       document.getElementById('encFaltanteOverlay').classList.remove('open');
     };
 
@@ -9822,21 +9855,38 @@
       if (erro) return;
       const encDesc = document.getElementById('faltanteEncDesc').value.trim();
       const _reportadoPorMorador = window.KV_AUTH && window.KV_AUTH.getRole() === 'morador';
-      const enc = {
-        apto,
-        desc: encDesc,
-        foto: null,
-        status: 'aguardando',
-        faltante: true,
-        faltanteDesc: desc,
-        reportadoPorMorador: _reportadoPorMorador,
-        ts: Date.now(),
-        entregueTs: null
-      };
       try {
-        const ref = _colEncomendas().doc();
-        await ref.set({ ...enc, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
-        adicionarEncLog('enc-faltante', enc);
+        if (_faltanteEncId) {
+          // CORRIGIDO: antes, marcar "Faltante" numa encomenda já
+          // existente sempre criava um documento NOVO — a encomenda
+          // original ficava intocada (ainda "aguardando", sem marca de
+          // faltante nenhuma) e sobrava um registro duplicado fantasma.
+          // Agora atualiza o registro certo.
+          await _colEncomendas().doc(_faltanteEncId).set({
+            faltante: true,
+            faltanteDesc: desc,
+            reportadoPorMorador: _reportadoPorMorador,
+          }, { merge: true });
+          adicionarEncLog('enc-faltante', { apto, desc: encDesc });
+        } else {
+          // Reportar uma encomenda que nunca chegou a ser registrada —
+          // aqui sim faz sentido criar um documento novo.
+          const enc = {
+            apto,
+            desc: encDesc,
+            foto: null,
+            status: 'aguardando',
+            faltante: true,
+            faltanteDesc: desc,
+            reportadoPorMorador: _reportadoPorMorador,
+            ts: Date.now(),
+            entregueTs: null
+          };
+          const ref = _colEncomendas().doc();
+          await ref.set({ ...enc, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+          adicionarEncLog('enc-faltante', enc);
+        }
+        _faltanteEncId = null;
         fecharFaltante();
         const wrap = document.getElementById('encListWrap');
         const arrow = document.getElementById('encToggleArrow');
@@ -10216,6 +10266,7 @@
     window.encMarcarFaltante = function(id) {
       const enc = encomendas.find(e => e.id === id);
       if (!enc) return;
+      _faltanteEncId = id;
       document.getElementById('faltanteApto').value = enc.apto || '';
       document.getElementById('faltanteDesc').value = '';
       document.getElementById('faltanteEncDesc').value = enc.desc || '';
@@ -10283,7 +10334,7 @@ function encPertenceAoMorador(enc, user) {
 // Banner de boas-vindas ao fazer login: mostra encomendas pendentes do morador
 window.mostrarNotifEncomendaMorador = function(user) {
   try {
-    const dados = JSON.parse(localStorage.getItem('kv_encomendas') || '[]');
+    const dados = JSON.parse(sessionStorage.getItem('kv_encomendas') || '[]');
     const pendentes = dados.filter(e => e.status !== 'entregue' && encPertenceAoMorador(e, user));
     if (!pendentes.length) return;
 
