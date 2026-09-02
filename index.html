@@ -3134,12 +3134,14 @@
 
   <!-- CARD "MINHA VAGA" — só o morador vê, e só os dados dele mesmo
        (vaga, andar do estacionamento e veículo próprio). Fica logo
-       abaixo do cabeçalho KEYVAULT / CLAVICULÁRIO. -->
-  <div id="minhaVagaCard" style="display:none;margin:10px 14px 0;padding:14px 16px;border-radius:14px;border:1px solid rgba(0,229,255,0.35);background:rgba(0,229,255,0.06);">
-    <div style="font-family:var(--font-display);font-size:11px;letter-spacing:1.5px;color:var(--cyan);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
-      🅿️ MINHA VAGA
+       abaixo do cabeçalho KEYVAULT / CLAVICULÁRIO. Começa minimizado,
+       mostrando só o título; toca pra expandir/recolher. -->
+  <div id="minhaVagaCard" style="display:none;margin:10px 14px 0;padding:0 16px;border-radius:14px;border:1px solid rgba(0,229,255,0.35);background:rgba(0,229,255,0.06);overflow:hidden;">
+    <div id="minhaVagaCardHeader" onclick="window.toggleMinhaVagaCard && window.toggleMinhaVagaCard()" style="cursor:pointer;user-select:none;padding:14px 0;font-family:var(--font-display);font-size:11px;letter-spacing:1.5px;color:var(--cyan);display:flex;align-items:center;justify-content:space-between;gap:6px;">
+      <span>🅿️ MINHA VAGA</span>
+      <span id="minhaVagaCardChevron" style="transition:transform 0.2s;">▾</span>
     </div>
-    <div id="minhaVagaCardBody" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 18px;font-size:13px;color:#e8feff;"></div>
+    <div id="minhaVagaCardBody" style="display:none;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 18px;font-size:13px;color:#e8feff;padding:0 0 14px;"></div>
   </div>
 
   <!-- AVISO DE E-MAIL NÃO VERIFICADO -->
@@ -5437,22 +5439,49 @@
       }
     }
 
+    window.toggleMinhaVagaCard = function() {
+      const body = document.getElementById('minhaVagaCardBody');
+      const chevron = document.getElementById('minhaVagaCardChevron');
+      if (!body) return;
+      const abrindo = body.style.display !== 'grid';
+      body.style.display = abrindo ? 'grid' : 'none';
+      if (chevron) chevron.style.transform = abrindo ? 'rotate(180deg)' : 'rotate(0deg)';
+      // Se estiver mostrando a mensagem de erro, tenta recarregar ao expandir.
+      if (abrindo && body.textContent.includes('tentar de novo') && window.kvVagas) {
+        window.kvVagas.atualizarCardMinhaVaga();
+      }
+    };
+
     async function atualizarCardMinhaVaga() {
       const card = document.getElementById('minhaVagaCard');
       const body = document.getElementById('minhaVagaCardBody');
       if (!card || !body) { console.warn('[MinhaVaga] elemento #minhaVagaCard não encontrado no HTML.'); return; }
       if (!window.KV_AUTH || KV_AUTH.getRole() !== 'morador') { card.style.display = 'none'; return; }
+
+      // O card fica sempre visível (fixo) enquanto a sessão for de morador —
+      // nunca some sozinho, mesmo se a leitura falhar ou demorar. O que pode
+      // mudar é o conteúdo mostrado dentro dele.
+      card.style.display = 'block';
+
+      const campo = (rotulo, valor) => valor
+        ? `<div><div style="font-size:9px;letter-spacing:0.8px;color:rgba(0,229,255,0.6);margin-bottom:2px;">${rotulo}</div><div style="font-weight:600;">${sanitizeHTML(valor)}</div></div>`
+        : '';
+      const msg = (texto) => `<div style="grid-column:1/-1;color:rgba(232,254,255,0.65);font-size:12px;">${texto}</div>`;
+
       try {
         const condominioId = KV_AUTH.getCondominioId();
         const moradorId = KV_AUTH.getUsername();
         const snap = await _lerDocMoradorComRetry(condominioId, moradorId, 0);
-        if (!snap.exists) { console.warn('[MinhaVaga] documento não encontrado em condominios/'+condominioId+'/moradores/'+moradorId); card.style.display = 'none'; return; }
+        if (!snap.exists) {
+          console.warn('[MinhaVaga] documento não encontrado em condominios/'+condominioId+'/moradores/'+moradorId);
+          body.innerHTML = msg('Nenhuma vaga cadastrada ainda.');
+          return;
+        }
         const m = snap.data();
-        if (!m.vaga && !m.veiculoPlaca && !m.veiculoModelo && !m.veiculoCor) { card.style.display = 'none'; return; }
-
-        const campo = (rotulo, valor) => valor
-          ? `<div><div style="font-size:9px;letter-spacing:0.8px;color:rgba(0,229,255,0.6);margin-bottom:2px;">${rotulo}</div><div style="font-weight:600;">${sanitizeHTML(valor)}</div></div>`
-          : '';
+        if (!m.vaga && !m.veiculoPlaca && !m.veiculoModelo && !m.veiculoCor) {
+          body.innerHTML = msg('Nenhuma vaga cadastrada ainda.');
+          return;
+        }
 
         body.innerHTML = [
           campo('VAGA', m.vaga),
@@ -5461,8 +5490,10 @@
           campo('COR', m.veiculoCor),
           campo('PLACA', m.veiculoPlaca),
         ].join('');
-        card.style.display = 'block';
-      } catch (e) { console.error('[MinhaVaga] erro ao carregar:', e); card.style.display = 'none'; }
+      } catch (e) {
+        console.error('[MinhaVaga] erro ao carregar:', e);
+        body.innerHTML = msg('Não foi possível carregar agora. Toque para tentar de novo.');
+      }
     }
 
     window.dispensarVagaMudouBanner = async function() {
