@@ -3128,6 +3128,7 @@
         <span id="sessionName">Administrador</span>
         <span id="sessionRole" class="session-role"></span>
       </div>
+      <div id="sessionVagaInfo" style="display:none;margin-top:4px;text-align:right;font-family:var(--font-display);font-size:9px;letter-spacing:0.5px;color:var(--cyan);line-height:1.5;"></div>
     </div>
   </div>
 
@@ -3151,12 +3152,6 @@
   <div id="vagaMudouBanner" style="display:none;margin:10px 14px 0;padding:10px 14px;border-radius:10px;border:1px solid var(--green);background:rgba(0,230,118,0.1);align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
     <div style="font-size:12px;color:var(--green);" id="vagaMudouTexto"></div>
     <span onclick="dispensarVagaMudouBanner()" title="Ciente" style="cursor:pointer;color:var(--text-dim);font-size:16px;line-height:1;padding:2px 4px;">✕</span>
-  </div>
-
-  <!-- CARD: MINHA VAGA E MEU VEÍCULO (só morador, só os dados dele mesmo) -->
-  <div id="minhaVagaCard" style="display:none;margin:10px 14px 0;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);">
-    <div style="font-family:var(--font-display);font-size:11px;letter-spacing:1px;color:var(--cyan);margin-bottom:6px;">🅿️ MINHA VAGA</div>
-    <div id="minhaVagaConteudo" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
   </div>
 
   <!-- STATS -->
@@ -5416,9 +5411,8 @@
     // Card "Minha Vaga" — só o morador vê, e só os dados dele mesmo
     // (vaga, andar e veículo próprio — nunca o de outro morador).
     async function atualizarCardMinhaVaga() {
-      const card = document.getElementById('minhaVagaCard');
-      const conteudo = document.getElementById('minhaVagaConteudo');
-      if (!card || !conteudo) { console.warn('[MinhaVaga] elementos #minhaVagaCard/#minhaVagaConteudo não encontrados no HTML.'); return; }
+      const card = document.getElementById('sessionVagaInfo');
+      if (!card) { console.warn('[MinhaVaga] elemento #sessionVagaInfo não encontrado no HTML.'); return; }
       if (!window.KV_AUTH || KV_AUTH.getRole() !== 'morador') { card.style.display = 'none'; return; }
       try {
         const condominioId = KV_AUTH.getCondominioId();
@@ -5428,17 +5422,14 @@
         if (!snap.exists) { console.warn('[MinhaVaga] documento não encontrado em condominios/'+condominioId+'/moradores/'+moradorId); card.style.display = 'none'; return; }
         const m = snap.data();
         console.log('[MinhaVaga] dados do morador:', m);
-        if (!m.vaga && !m.veiculoPlaca && !m.veiculoModelo && !m.veiculoCor) { console.log('[MinhaVaga] nenhum campo de vaga/veículo preenchido — card fica escondido de propósito.'); card.style.display = 'none'; return; }
+        if (!m.vaga && !m.veiculoPlaca && !m.veiculoModelo && !m.veiculoCor) { console.log('[MinhaVaga] nenhum campo de vaga/veículo preenchido — nada pra mostrar.'); card.style.display = 'none'; return; }
 
-        const badge = (texto, cor) =>
-          `<span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:rgba(0,0,0,0.15);border:1px solid ${cor};color:${cor};">${texto}</span>`;
-
-        let html = '';
-        if (m.vaga) html += badge(`🚗 Vaga ${sanitizeHTML(m.vaga)}${m.andarVaga ? ' — ' + sanitizeHTML(m.andarVaga) : ''}`, 'var(--cyan)');
+        const linhas = [];
+        if (m.vaga) linhas.push(`🚗 Vaga ${sanitizeHTML(m.vaga)}${m.andarVaga ? ' — ' + sanitizeHTML(m.andarVaga) : ''}`);
         const veiculo = [m.veiculoModelo, m.veiculoCor, m.veiculoPlaca].filter(Boolean).map(sanitizeHTML).join(' • ');
-        if (veiculo) html += badge(veiculo, 'var(--amber)');
+        if (veiculo) linhas.push(veiculo);
 
-        conteudo.innerHTML = html;
+        card.innerHTML = linhas.join('<br>');
         card.style.display = 'block';
       } catch (e) { console.error('[MinhaVaga] erro ao carregar:', e); card.style.display = 'none'; }
     }
@@ -5531,6 +5522,8 @@
     clearSession();
     try { firebase.auth().signOut(); } catch(e) {}
     document.getElementById('sessionBadge').style.display = 'none';
+    const _sessVagaEl = document.getElementById('sessionVagaInfo');
+    if (_sessVagaEl) _sessVagaEl.style.display = 'none';
     document.getElementById('loginScreen').classList.remove('hidden');
     document.getElementById('loginErrorMsg').style.display = 'none';
     // Reset
