@@ -3132,6 +3132,16 @@
     </div>
   </div>
 
+  <!-- CARD "MINHA VAGA" — só o morador vê, e só os dados dele mesmo
+       (vaga, andar do estacionamento e veículo próprio). Fica logo
+       abaixo do cabeçalho KEYVAULT / CLAVICULÁRIO. -->
+  <div id="minhaVagaCard" style="display:none;margin:10px 14px 0;padding:14px 16px;border-radius:14px;border:1px solid rgba(0,229,255,0.35);background:rgba(0,229,255,0.06);">
+    <div style="font-family:var(--font-display);font-size:11px;letter-spacing:1.5px;color:var(--cyan);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+      🅿️ MINHA VAGA
+    </div>
+    <div id="minhaVagaCardBody" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 18px;font-size:13px;color:#e8feff;"></div>
+  </div>
+
   <!-- AVISO DE E-MAIL NÃO VERIFICADO -->
   <div id="emailVerifBanner" style="display:none;margin:10px 14px 0;padding:10px 14px;border-radius:10px;border:1px solid var(--amber);background:rgba(255,171,0,0.1);align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
     <div style="font-size:12px;color:var(--amber);">
@@ -5410,27 +5420,47 @@
 
     // Card "Minha Vaga" — só o morador vê, e só os dados dele mesmo
     // (vaga, andar e veículo próprio — nunca o de outro morador).
+    // Mostra campo a campo: vaga, andar, modelo, cor e placa.
+    async function _lerDocMoradorComRetry(condominioId, moradorId, tentativa) {
+      try {
+        return await colMoradores(condominioId).doc(moradorId).get();
+      } catch (e) {
+        // "Missing or insufficient permissions" logo após o login/reload
+        // costuma ser uma corrida: o app já tem o uid em memória, mas o
+        // token de autenticação ainda não terminou de propagar pra
+        // conexão do Firestore. Tenta de novo, forçando renovar o token,
+        // antes de desistir de vez.
+        if (tentativa >= 3) throw e;
+        try { await firebase.auth().currentUser.getIdToken(true); } catch (e2) { /* segue mesmo assim */ }
+        await new Promise(r => setTimeout(r, 700 * (tentativa + 1)));
+        return _lerDocMoradorComRetry(condominioId, moradorId, tentativa + 1);
+      }
+    }
+
     async function atualizarCardMinhaVaga() {
-      const card = document.getElementById('sessionVagaInfo');
-      if (!card) { console.warn('[MinhaVaga] elemento #sessionVagaInfo não encontrado no HTML.'); return; }
+      const card = document.getElementById('minhaVagaCard');
+      const body = document.getElementById('minhaVagaCardBody');
+      if (!card || !body) { console.warn('[MinhaVaga] elemento #minhaVagaCard não encontrado no HTML.'); return; }
       if (!window.KV_AUTH || KV_AUTH.getRole() !== 'morador') { card.style.display = 'none'; return; }
       try {
         const condominioId = KV_AUTH.getCondominioId();
         const moradorId = KV_AUTH.getUsername();
-        console.log('[MinhaVaga] condominioId=' + condominioId + ' | moradorId=' + moradorId);
-        console.log('[MinhaVaga] meu uid autenticado=' + (firebase.auth().currentUser && firebase.auth().currentUser.uid));
-        const snap = await colMoradores(condominioId).doc(moradorId).get();
+        const snap = await _lerDocMoradorComRetry(condominioId, moradorId, 0);
         if (!snap.exists) { console.warn('[MinhaVaga] documento não encontrado em condominios/'+condominioId+'/moradores/'+moradorId); card.style.display = 'none'; return; }
         const m = snap.data();
-        console.log('[MinhaVaga] dados do morador:', m);
-        if (!m.vaga && !m.veiculoPlaca && !m.veiculoModelo && !m.veiculoCor) { console.log('[MinhaVaga] nenhum campo de vaga/veículo preenchido — nada pra mostrar.'); card.style.display = 'none'; return; }
+        if (!m.vaga && !m.veiculoPlaca && !m.veiculoModelo && !m.veiculoCor) { card.style.display = 'none'; return; }
 
-        const linhas = [];
-        if (m.vaga) linhas.push(`🚗 Vaga ${sanitizeHTML(m.vaga)}${m.andarVaga ? ' — ' + sanitizeHTML(m.andarVaga) : ''}`);
-        const veiculo = [m.veiculoModelo, m.veiculoCor, m.veiculoPlaca].filter(Boolean).map(sanitizeHTML).join(' • ');
-        if (veiculo) linhas.push(veiculo);
+        const campo = (rotulo, valor) => valor
+          ? `<div><div style="font-size:9px;letter-spacing:0.8px;color:rgba(0,229,255,0.6);margin-bottom:2px;">${rotulo}</div><div style="font-weight:600;">${sanitizeHTML(valor)}</div></div>`
+          : '';
 
-        card.innerHTML = linhas.join('<br>');
+        body.innerHTML = [
+          campo('VAGA', m.vaga),
+          campo('ANDAR', m.andarVaga),
+          campo('VEÍCULO', m.veiculoModelo),
+          campo('COR', m.veiculoCor),
+          campo('PLACA', m.veiculoPlaca),
+        ].join('');
         card.style.display = 'block';
       } catch (e) { console.error('[MinhaVaga] erro ao carregar:', e); card.style.display = 'none'; }
     }
@@ -5523,8 +5553,8 @@
     clearSession();
     try { firebase.auth().signOut(); } catch(e) {}
     document.getElementById('sessionBadge').style.display = 'none';
-    const _sessVagaEl = document.getElementById('sessionVagaInfo');
-    if (_sessVagaEl) _sessVagaEl.style.display = 'none';
+    const _minhaVagaEl = document.getElementById('minhaVagaCard');
+    if (_minhaVagaEl) _minhaVagaEl.style.display = 'none';
     document.getElementById('loginScreen').classList.remove('hidden');
     document.getElementById('loginErrorMsg').style.display = 'none';
     // Reset
@@ -12097,25 +12127,7 @@ const kvMoradores = (() => {
       }
     }
 
-    // AUTORRECUPERAÇÃO: contas ativadas antes do campo "moradorId" existir
-    // em usuarios/{uid} caem aqui — como esse documento nunca pode ser
-    // reescrito depois de criado, não dá pra "consertar" o vínculo salvo.
-    // Em vez disso, busca o próprio documento por uma consulta filtrada
-    // pelo próprio uid — a regra do Firestore permite isso porque o
-    // filtro da consulta já garante que só o documento da própria pessoa
-    // pode voltar como resultado.
-    try {
-      const snap = await firebase.firestore()
-        .collection('condominios').doc(condominioId)
-        .collection('moradores').where('uid', '==', cred.user.uid).limit(1).get();
-      if (!snap.empty) {
-        const doc = snap.docs[0];
-        const dados = doc.data();
-        return { uid: cred.user.uid, nome: dados.nome, apto: dados.apto, bloco: dados.bloco || '', moradorId: doc.id, condominioId };
-      }
-    } catch (e) { console.warn('Autorrecuperação de moradorId falhou:', e.message); }
-
-    // Último recurso: usa dados de usuarios/{uid} se nada acima funcionou
+    // Fallback: usa dados de usuarios/{uid} se o documento moradores não for encontrado
     return {
       uid: cred.user.uid,
       nome: userData.nome,
