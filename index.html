@@ -5418,15 +5418,17 @@
     async function atualizarCardMinhaVaga() {
       const card = document.getElementById('minhaVagaCard');
       const conteudo = document.getElementById('minhaVagaConteudo');
-      if (!card || !conteudo) return;
+      if (!card || !conteudo) { console.warn('[MinhaVaga] elementos #minhaVagaCard/#minhaVagaConteudo não encontrados no HTML.'); return; }
       if (!window.KV_AUTH || KV_AUTH.getRole() !== 'morador') { card.style.display = 'none'; return; }
       try {
         const condominioId = KV_AUTH.getCondominioId();
         const moradorId = KV_AUTH.getUsername();
+        console.log('[MinhaVaga] buscando documento', { condominioId, moradorId });
         const snap = await colMoradores(condominioId).doc(moradorId).get();
-        if (!snap.exists) { card.style.display = 'none'; return; }
+        if (!snap.exists) { console.warn('[MinhaVaga] documento não encontrado em condominios/'+condominioId+'/moradores/'+moradorId); card.style.display = 'none'; return; }
         const m = snap.data();
-        if (!m.vaga && !m.veiculoPlaca && !m.veiculoModelo && !m.veiculoCor) { card.style.display = 'none'; return; }
+        console.log('[MinhaVaga] dados do morador:', m);
+        if (!m.vaga && !m.veiculoPlaca && !m.veiculoModelo && !m.veiculoCor) { console.log('[MinhaVaga] nenhum campo de vaga/veículo preenchido — card fica escondido de propósito.'); card.style.display = 'none'; return; }
 
         const badge = (texto, cor) =>
           `<span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:rgba(0,0,0,0.15);border:1px solid ${cor};color:${cor};">${texto}</span>`;
@@ -5438,7 +5440,7 @@
 
         conteudo.innerHTML = html;
         card.style.display = 'block';
-      } catch (e) { card.style.display = 'none'; }
+      } catch (e) { console.error('[MinhaVaga] erro ao carregar:', e); card.style.display = 'none'; }
     }
 
     window.dispensarVagaMudouBanner = async function() {
@@ -12081,15 +12083,24 @@ const kvMoradores = (() => {
     }
     const condominioId = userData.condominioId;
 
-    // Tenta encontrar o documento do morador no condomínio correto
-    const snap = await firebase.firestore()
-      .collection('condominios').doc(condominioId)
-      .collection('moradores').where('uid', '==', cred.user.uid).limit(1).get();
-
-    if (!snap.empty) {
-      const doc = snap.docs[0];
-      const dados = doc.data();
-      return { uid: cred.user.uid, nome: dados.nome, apto: dados.apto, bloco: dados.bloco || '', moradorId: doc.id, condominioId };
+    // CORRIGIDO: antes, esta função buscava o documento do morador com
+    // .where('uid','==', cred.user.uid) — uma consulta do tipo "list".
+    // As regras do Firestore só permitem "list" na coleção moradores para
+    // a equipe (síndico/porteiro); um morador comum tomava
+    // permission-denied aqui TODA VEZ que fazia login normal (com e-mail
+    // e senha, depois do primeiro acesso), mesmo já estando cadastrado
+    // corretamente. Agora usamos o campo "moradorId" que já fica salvo em
+    // usuarios/{uid} desde o primeiro acesso, e buscamos o documento
+    // direto pelo ID — um "get" simples, que a regra já permite pro
+    // próprio morador (resource.data.uid == request.auth.uid).
+    if (userData.moradorId) {
+      const doc = await firebase.firestore()
+        .collection('condominios').doc(condominioId)
+        .collection('moradores').doc(userData.moradorId).get();
+      if (doc.exists) {
+        const dados = doc.data();
+        return { uid: cred.user.uid, nome: dados.nome, apto: dados.apto, bloco: dados.bloco || '', moradorId: doc.id, condominioId };
+      }
     }
 
     // Fallback: usa dados de usuarios/{uid} se o documento moradores não for encontrado
