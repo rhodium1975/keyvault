@@ -12097,7 +12097,25 @@ const kvMoradores = (() => {
       }
     }
 
-    // Fallback: usa dados de usuarios/{uid} se o documento moradores não for encontrado
+    // AUTORRECUPERAÇÃO: contas ativadas antes do campo "moradorId" existir
+    // em usuarios/{uid} caem aqui — como esse documento nunca pode ser
+    // reescrito depois de criado, não dá pra "consertar" o vínculo salvo.
+    // Em vez disso, busca o próprio documento por uma consulta filtrada
+    // pelo próprio uid — a regra do Firestore permite isso porque o
+    // filtro da consulta já garante que só o documento da própria pessoa
+    // pode voltar como resultado.
+    try {
+      const snap = await firebase.firestore()
+        .collection('condominios').doc(condominioId)
+        .collection('moradores').where('uid', '==', cred.user.uid).limit(1).get();
+      if (!snap.empty) {
+        const doc = snap.docs[0];
+        const dados = doc.data();
+        return { uid: cred.user.uid, nome: dados.nome, apto: dados.apto, bloco: dados.bloco || '', moradorId: doc.id, condominioId };
+      }
+    } catch (e) { console.warn('Autorrecuperação de moradorId falhou:', e.message); }
+
+    // Último recurso: usa dados de usuarios/{uid} se nada acima funcionou
     return {
       uid: cred.user.uid,
       nome: userData.nome,
