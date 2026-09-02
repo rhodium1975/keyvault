@@ -5462,6 +5462,28 @@
     }, 900);
   });
 
+  // Cobre o caso de reabrir o app já logado (sessão restaurada pelo
+  // Firebase sem passar pela tela de login de novo) — sem isso, o card
+  // e os avisos só apareciam na primeira vez, logo após o login manual.
+  window._kvVagasSessaoJaChecada = false;
+  document.addEventListener('kv-logout', function() { window._kvVagasSessaoJaChecada = false; });
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (!user || window._kvVagasSessaoJaChecada) return;
+    const tentar = () => {
+      if (!window.KV_AUTH || !KV_AUTH.isLoggedIn || !KV_AUTH.isLoggedIn()) {
+        setTimeout(tentar, 400); // sessão do KV_AUTH ainda carregando — tenta de novo em breve
+        return;
+      }
+      window._kvVagasSessaoJaChecada = true;
+      kvVagas.verificarEExecutarSeNecessario().then(() => {
+        kvVagas.atualizarBannerAviso();
+        kvVagas.atualizarBannerMudanca();
+        kvVagas.atualizarCardMinhaVaga();
+      });
+    };
+    setTimeout(tentar, 900);
+  });
+
 
   // ── MENU DE SESSÃO ──
   window.abrirMenuSessao = function() {
