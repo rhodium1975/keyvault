@@ -5423,6 +5423,36 @@
     // Card "Minha Vaga" — só o morador vê, e só os dados dele mesmo
     // (vaga, andar e veículo próprio — nunca o de outro morador).
     // Mostra campo a campo: vaga, andar, modelo, cor e placa.
+
+    // Autocorreção da sessão: se a sessão salva no navegador ficou com o
+    // moradorId errado (ex.: sessão antiga, criada antes do campo
+    // "moradorId" existir em usuarios/{uid}), aqui a gente confere o valor
+    // certo direto no Firestore e corrige a sessão sozinho — sem precisar
+    // pedir pra pessoa deslogar e logar de novo.
+    async function _autocorrigirMoradorIdNaSessao() {
+      if (!window.KV_AUTH || KV_AUTH.getRole() !== 'morador') return;
+      const user = firebase.auth().currentUser;
+      if (!user) return;
+      try {
+        const uSnap = await firebase.firestore().collection('usuarios').doc(user.uid).get();
+        if (!uSnap.exists) return;
+        const moradorIdCorreto = uSnap.data().moradorId;
+        const moradorIdAtual = KV_AUTH.getUsername();
+        if (moradorIdCorreto && moradorIdCorreto !== moradorIdAtual) {
+          const raw = sessionStorage.getItem('kv_auth_session_v1');
+          const sess = raw ? JSON.parse(raw) : null;
+          if (sess) {
+            console.warn('[MinhaVaga] sessão desatualizada detectada — corrigindo moradorId automaticamente (' + moradorIdAtual + ' → ' + moradorIdCorreto + ').');
+            sess.username = moradorIdCorreto;
+            KV_AUTH.saveSession(sess);
+          }
+        }
+      } catch (e) {
+        // Silencioso — se essa checagem falhar, o fluxo normal (com retry)
+        // ainda tenta ler o documento do jeito que já estava.
+      }
+    }
+
     async function _lerDocMoradorComRetry(condominioId, moradorId, tentativa) {
       try {
         return await colMoradores(condominioId).doc(moradorId).get();
@@ -5457,6 +5487,8 @@
       const body = document.getElementById('minhaVagaCardBody');
       if (!card || !body) { console.warn('[MinhaVaga] elemento #minhaVagaCard não encontrado no HTML.'); return; }
       if (!window.KV_AUTH || KV_AUTH.getRole() !== 'morador') { card.style.display = 'none'; return; }
+
+      await _autocorrigirMoradorIdNaSessao();
 
       // O card fica sempre visível (fixo) enquanto a sessão for de morador —
       // nunca some sozinho, mesmo se a leitura falhar ou demorar. O que pode
@@ -5504,12 +5536,13 @@
       if (el) el.style.display = 'none';
     };
 
-    return { getConfig, salvarConfig, sortearAgora, verificarEExecutarSeNecessario, atualizarBannerAviso, atualizarBannerMudanca, atualizarCardMinhaVaga };
+    return { getConfig, salvarConfig, sortearAgora, verificarEExecutarSeNecessario, atualizarBannerAviso, atualizarBannerMudanca, atualizarCardMinhaVaga, autocorrigirMoradorIdNaSessao: _autocorrigirMoradorIdNaSessao };
   })();
   window.kvVagas = kvVagas;
 
   document.addEventListener('kv-login', function() {
     setTimeout(async () => {
+      await kvVagas.autocorrigirMoradorIdNaSessao();
       await kvVagas.verificarEExecutarSeNecessario();
       kvVagas.atualizarBannerAviso();
       kvVagas.atualizarBannerMudanca();
@@ -5530,7 +5563,7 @@
         return;
       }
       window._kvVagasSessaoJaChecada = true;
-      kvVagas.verificarEExecutarSeNecessario().then(() => {
+      kvVagas.autocorrigirMoradorIdNaSessao().then(() => kvVagas.verificarEExecutarSeNecessario()).then(() => {
         kvVagas.atualizarBannerAviso();
         kvVagas.atualizarBannerMudanca();
         kvVagas.atualizarCardMinhaVaga();
