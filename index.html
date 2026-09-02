@@ -5417,7 +5417,8 @@
       try {
         const condominioId = KV_AUTH.getCondominioId();
         const moradorId = KV_AUTH.getUsername();
-        console.log('[MinhaVaga] buscando documento', { condominioId, moradorId });
+        console.log('[MinhaVaga] condominioId=' + condominioId + ' | moradorId=' + moradorId);
+        console.log('[MinhaVaga] meu uid autenticado=' + (firebase.auth().currentUser && firebase.auth().currentUser.uid));
         const snap = await colMoradores(condominioId).doc(moradorId).get();
         if (!snap.exists) { console.warn('[MinhaVaga] documento não encontrado em condominios/'+condominioId+'/moradores/'+moradorId); card.style.display = 'none'; return; }
         const m = snap.data();
