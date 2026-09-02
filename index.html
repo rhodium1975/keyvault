@@ -19,6 +19,11 @@
 </script>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#00e5ff">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KeyVault">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>KeyVault — Claviculário do Condomínio</title>
@@ -3137,6 +3142,23 @@
     </div>
   </div>
 
+  <!-- AVISO: SORTEIO DE VAGAS PRÓXIMO -->
+  <div id="sorteioAvisoBanner" style="display:none;margin:10px 14px 0;padding:10px 14px;border-radius:10px;border:1px solid var(--purple);background:rgba(213,0,249,0.1);align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <div style="font-size:12px;color:var(--purple);" id="sorteioAvisoTexto"></div>
+  </div>
+
+  <!-- AVISO: SUA VAGA MUDOU (morador) -->
+  <div id="vagaMudouBanner" style="display:none;margin:10px 14px 0;padding:10px 14px;border-radius:10px;border:1px solid var(--green);background:rgba(0,230,118,0.1);align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <div style="font-size:12px;color:var(--green);" id="vagaMudouTexto"></div>
+    <span onclick="dispensarVagaMudouBanner()" title="Ciente" style="cursor:pointer;color:var(--text-dim);font-size:16px;line-height:1;padding:2px 4px;">✕</span>
+  </div>
+
+  <!-- CARD: MINHA VAGA E MEU VEÍCULO (só morador, só os dados dele mesmo) -->
+  <div id="minhaVagaCard" style="display:none;margin:10px 14px 0;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);">
+    <div style="font-family:var(--font-display);font-size:11px;letter-spacing:1px;color:var(--cyan);margin-bottom:6px;">🅿️ MINHA VAGA</div>
+    <div id="minhaVagaConteudo" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+  </div>
+
   <!-- STATS -->
   <div class="stats-row" id="stats">
       <div class="stat-box total"><div class="stat-num">9</div><div class="stat-lbl">Total</div></div>
@@ -5204,6 +5226,243 @@
   document.addEventListener('kv-login', function() { setTimeout(verificarStatusEmail, 800); });
 
 
+  // ══════════════════════════════════════════════════════════════
+  //  SORTEIO ANUAL DE VAGAS DE ESTACIONAMENTO
+  // ══════════════════════════════════════════════════════════════
+  //
+  // Reaproveita os campos "vaga" e "andarVaga" que já existem em cada
+  // morador (cadastrados pelo síndico). O sorteio embaralha esses pares
+  // (vaga + andar) entre os moradores que têm vaga cadastrada.
+  //
+  // Como o app não tem servidor próprio (é hospedado como site estático),
+  // não existe um "relógio" rodando sozinho o tempo todo. Por isso o
+  // disparo é "preguiçoso": toda vez que QUALQUER pessoa (síndico, morador
+  // ou porteiro) faz login, o app verifica se a data programada já chegou
+  // e se o sorteio deste ano ainda não rodou — se for o caso, roda ali
+  // mesmo, na hora. Uma transação no Firestore garante que, mesmo que duas
+  // pessoas abram o app no mesmo instante, o sorteio roda só uma vez.
+  const kvVagas = (() => {
+    function condominioIdAtivo() {
+      const id = window.KV_AUTH && KV_AUTH.getCondominioId && KV_AUTH.getCondominioId();
+      if (!id) throw new Error('Nenhum condomínio ativo na sessão.');
+      return id;
+    }
+    function docConfig(condominioId) {
+      return firebase.firestore().collection('condominios').doc(condominioId)
+        .collection('config').doc('sorteioVagas');
+    }
+    function colMoradores(condominioId) {
+      return firebase.firestore().collection('condominios').doc(condominioId).collection('moradores');
+    }
+
+    async function getConfig() {
+      const snap = await docConfig(condominioIdAtivo()).get();
+      return snap.exists ? snap.data() : { ativo: false, dataProgramada: null, frequenciaAnos: 1, ultimoSorteioAno: null };
+    }
+
+    async function salvarConfig({ dataProgramada, ativo, frequenciaAnos }) {
+      await docConfig(condominioIdAtivo()).set({
+        dataProgramada: dataProgramada || null,
+        ativo: !!ativo,
+        frequenciaAnos: Number(frequenciaAnos) || 1,
+      }, { merge: true });
+    }
+
+    // Embaralha os pares vaga/andar tentando garantir que ninguém fique
+    // com a mesma vaga que já tinha (até 20 tentativas; se não conseguir,
+    // aceita o resultado mesmo assim — é raro e não trava o sorteio).
+    function embaralharSemRepetir(lista) {
+      const arr = lista.slice();
+      for (let tentativa = 0; tentativa < 20; tentativa++) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        if (arr.length < 2 || arr.every((v, i) => v.vaga !== lista[i].vaga)) return arr;
+      }
+      return arr;
+    }
+
+    function somarAnos(dataStr, anos) {
+      if (!dataStr) return null;
+      const [y, m, d] = dataStr.split('-').map(Number);
+      return new Date(y + (anos || 1), m - 1, d).toISOString().split('T')[0];
+    }
+
+    async function executarSorteio(condominioId) {
+      const db = firebase.firestore();
+      const snap = await colMoradores(condominioId).where('status', '==', 'ativo').get();
+      const participantes = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(m => (m.vaga || '').trim() !== '');
+
+      if (participantes.length < 2) return { ok: false, motivo: 'menos-de-2-participantes' };
+
+      const pares = participantes.map(m => ({ vaga: m.vaga, andarVaga: m.andarVaga || '' }));
+      const novaOrdem = embaralharSemRepetir(pares);
+
+      const batch = db.batch();
+      const agora = firebase.firestore.FieldValue.serverTimestamp();
+      participantes.forEach((m, i) => {
+        const nova = novaOrdem[i];
+        const mudou = nova.vaga !== m.vaga || nova.andarVaga !== (m.andarVaga || '');
+        batch.update(colMoradores(condominioId).doc(m.id), {
+          vaga: nova.vaga,
+          andarVaga: nova.andarVaga,
+          ...(mudou ? { vagaAlteradaEm: agora, vagaVista: false } : {}),
+        });
+      });
+      await batch.commit();
+      return { ok: true, participantes: participantes.length };
+    }
+
+    // Disparo manual (botão "Sortear agora" do síndico) — roda na hora e já
+    // empurra a data programada pra frente (mantém o ciclo anual em dia).
+    async function sortearAgora() {
+      const condominioId = condominioIdAtivo();
+      const resultado = await executarSorteio(condominioId);
+      if (resultado.ok) {
+        const cfg = await getConfig();
+        const base = cfg.dataProgramada || new Date().toISOString().split('T')[0];
+        await docConfig(condominioId).set({
+          ultimoSorteioAno: new Date().getFullYear(),
+          ultimoSorteioEm: firebase.firestore.FieldValue.serverTimestamp(),
+          dataProgramada: somarAnos(base, cfg.frequenciaAnos || 1),
+        }, { merge: true });
+      }
+      return resultado;
+    }
+
+    // Disparo automático — chamado a cada login. Usa transação como trava.
+    async function verificarEExecutarSeNecessario() {
+      if (!window.KV_AUTH || !KV_AUTH.isLoggedIn || !KV_AUTH.isLoggedIn()) return;
+      const condominioId = KV_AUTH.getCondominioId();
+      if (!condominioId) return;
+      const db = firebase.firestore();
+      const ref = docConfig(condominioId);
+
+      let deveExecutar = false;
+      try {
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(ref);
+          const cfg = snap.exists ? snap.data() : null;
+          if (!cfg || !cfg.ativo || !cfg.dataProgramada) return;
+          const hojeStr = new Date().toISOString().split('T')[0];
+          if (hojeStr < cfg.dataProgramada) return;
+          if (cfg.ultimoSorteioAno === new Date().getFullYear()) return; // já rodou este ano
+          if (cfg.executando) return; // outra aba/pessoa já está executando agora
+          tx.set(ref, { executando: true }, { merge: true });
+          deveExecutar = true;
+        });
+      } catch (e) { console.warn('Sorteio de vagas: falha ao verificar', e); return; }
+
+      if (!deveExecutar) return;
+
+      try {
+        const resultado = await executarSorteio(condominioId);
+        const cfgAtual = (await ref.get()).data() || {};
+        await ref.set({
+          executando: false,
+          ultimoSorteioAno: new Date().getFullYear(),
+          ultimoSorteioEm: firebase.firestore.FieldValue.serverTimestamp(),
+          dataProgramada: somarAnos(cfgAtual.dataProgramada, cfgAtual.frequenciaAnos || 1),
+        }, { merge: true });
+        if (resultado.ok && window.showToastSimples) window.showToastSimples('🎲 Sorteio de vagas realizado!');
+      } catch (e) {
+        console.error('Erro ao executar sorteio de vagas', e);
+        await ref.set({ executando: false }, { merge: true }).catch(() => {});
+      }
+    }
+
+    // Banner "faltam X dias" — visível pra qualquer papel logado.
+    async function atualizarBannerAviso() {
+      const el = document.getElementById('sorteioAvisoBanner');
+      if (!el || !window.KV_AUTH || !KV_AUTH.isLoggedIn()) return;
+      try {
+        const cfg = await getConfig();
+        if (!cfg.ativo || !cfg.dataProgramada) { el.style.display = 'none'; return; }
+        const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+        const alvo = new Date(cfg.dataProgramada + 'T00:00:00');
+        const dias = Math.ceil((alvo - hoje) / 86400000);
+        if (dias < 0 || dias > 7) { el.style.display = 'none'; return; }
+        document.getElementById('sorteioAvisoTexto').textContent = dias === 0
+          ? '🎲 O sorteio anual de vagas de estacionamento acontece hoje.'
+          : `🎲 Sorteio anual de vagas de estacionamento em ${dias} dia${dias > 1 ? 's' : ''}.`;
+        el.style.display = 'flex';
+      } catch (e) { el.style.display = 'none'; }
+    }
+
+    // Banner "sua vaga mudou" — só pro morador dono da vaga alterada.
+    async function atualizarBannerMudanca() {
+      const el = document.getElementById('vagaMudouBanner');
+      if (!el) return;
+      if (!window.KV_AUTH || KV_AUTH.getRole() !== 'morador') { el.style.display = 'none'; return; }
+      try {
+        const condominioId = KV_AUTH.getCondominioId();
+        const moradorId = KV_AUTH.getUsername();
+        const snap = await colMoradores(condominioId).doc(moradorId).get();
+        if (!snap.exists) { el.style.display = 'none'; return; }
+        const m = snap.data();
+        if (m.vagaAlteradaEm && m.vagaVista === false) {
+          document.getElementById('vagaMudouTexto').textContent =
+            `🚗 Sua vaga mudou! Agora é a vaga ${sanitizeHTML(m.vaga || '—')}${m.andarVaga ? ' — ' + sanitizeHTML(m.andarVaga) : ''}.`;
+          el.style.display = 'flex';
+        } else {
+          el.style.display = 'none';
+        }
+      } catch (e) { el.style.display = 'none'; }
+    }
+
+    // Card "Minha Vaga" — só o morador vê, e só os dados dele mesmo
+    // (vaga, andar e veículo próprio — nunca o de outro morador).
+    async function atualizarCardMinhaVaga() {
+      const card = document.getElementById('minhaVagaCard');
+      const conteudo = document.getElementById('minhaVagaConteudo');
+      if (!card || !conteudo) return;
+      if (!window.KV_AUTH || KV_AUTH.getRole() !== 'morador') { card.style.display = 'none'; return; }
+      try {
+        const condominioId = KV_AUTH.getCondominioId();
+        const moradorId = KV_AUTH.getUsername();
+        const snap = await colMoradores(condominioId).doc(moradorId).get();
+        if (!snap.exists) { card.style.display = 'none'; return; }
+        const m = snap.data();
+        if (!m.vaga && !m.veiculoPlaca && !m.veiculoModelo && !m.veiculoCor) { card.style.display = 'none'; return; }
+
+        const badge = (texto, cor) =>
+          `<span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:rgba(0,0,0,0.15);border:1px solid ${cor};color:${cor};">${texto}</span>`;
+
+        let html = '';
+        if (m.vaga) html += badge(`🚗 Vaga ${sanitizeHTML(m.vaga)}${m.andarVaga ? ' — ' + sanitizeHTML(m.andarVaga) : ''}`, 'var(--cyan)');
+        const veiculo = [m.veiculoModelo, m.veiculoCor, m.veiculoPlaca].filter(Boolean).map(sanitizeHTML).join(' • ');
+        if (veiculo) html += badge(veiculo, 'var(--amber)');
+
+        conteudo.innerHTML = html;
+        card.style.display = 'block';
+      } catch (e) { card.style.display = 'none'; }
+    }
+
+    window.dispensarVagaMudouBanner = async function() {
+      try {
+        await colMoradores(KV_AUTH.getCondominioId()).doc(KV_AUTH.getUsername()).set({ vagaVista: true }, { merge: true });
+      } catch (e) { /* ignora — banner some da tela de qualquer forma */ }
+      const el = document.getElementById('vagaMudouBanner');
+      if (el) el.style.display = 'none';
+    };
+
+    return { getConfig, salvarConfig, sortearAgora, verificarEExecutarSeNecessario, atualizarBannerAviso, atualizarBannerMudanca, atualizarCardMinhaVaga };
+  })();
+  window.kvVagas = kvVagas;
+
+  document.addEventListener('kv-login', function() {
+    setTimeout(async () => {
+      await kvVagas.verificarEExecutarSeNecessario();
+      kvVagas.atualizarBannerAviso();
+      kvVagas.atualizarBannerMudanca();
+      kvVagas.atualizarCardMinhaVaga();
+    }, 900);
+  });
+
+
   // ── MENU DE SESSÃO ──
   window.abrirMenuSessao = function() {
     const isAdmin = KV_AUTH.isAdmin();
@@ -5351,6 +5610,11 @@
             <input type="text" id="admMoradorVaga" placeholder="Vaga (opc.)" class="login-input" style="flex:1;min-width:70px;">
             <input type="text" id="admMoradorAndarVaga" placeholder="Andar da vaga (opc.)" class="login-input" style="flex:1;min-width:70px;">
           </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input type="text" id="admMoradorVeiculoModelo" placeholder="Modelo do veículo (opc.)" class="login-input" style="flex:1;min-width:100px;">
+            <input type="text" id="admMoradorVeiculoCor" placeholder="Cor (opc.)" class="login-input" style="flex:1;min-width:70px;">
+            <input type="text" id="admMoradorVeiculoPlaca" placeholder="Placa (opc.)" class="login-input" style="flex:1;min-width:70px;" maxlength="8" oninput="this.value=this.value.toUpperCase()">
+          </div>
           <input type="tel" id="admMoradorTelefone" placeholder="Telefone com DDD (ex: 11987654321)" class="login-input" style="width:100%;" oninput="mascararCelular(this)" maxlength="15">
           <button type="button" onclick="adminCadastrarMoradorFirebase()" class="login-btn" style="width:100%;">+ CADASTRAR MORADOR</button>
           <div id="admMoradorResultado" style="display:none;font-size:12px;font-family:var(--font-display);letter-spacing:0.5px;padding:8px;border-radius:8px;"></div>
@@ -5369,6 +5633,23 @@
           <button type="button" onclick="adminCadastrarPorteiroFirebase()" class="login-btn" style="width:100%;">+ CADASTRAR PORTEIRO</button>
           <div id="admPorteiroResultado" style="display:none;font-size:12px;font-family:var(--font-display);letter-spacing:0.5px;padding:8px;border-radius:8px;"></div>
         </div>
+      </div>
+      <div class="usermgmt-section">
+        <div class="usermgmt-section-title">🅿️ Sorteio anual de vagas</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+          <label style="font-size:11px;color:var(--text-dim);">Data programada do próximo sorteio</label>
+          <input type="date" id="sorteioVagasData" class="login-input" style="width:100%;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);cursor:pointer;">
+            <input type="checkbox" id="sorteioVagasAtivo" style="width:16px;height:16px;">
+            Sorteio automático ativado
+          </label>
+          <button type="button" onclick="salvarConfigSorteioVagas()" class="login-btn" style="width:100%;">💾 SALVAR PROGRAMAÇÃO</button>
+          <button type="button" onclick="sortearVagasAgora()" style="width:100%;margin-top:2px;background:rgba(213,0,249,0.08);border:1px solid rgba(213,0,249,0.4);color:var(--purple);border-radius:8px;padding:10px;font-family:var(--font-display);font-size:11px;letter-spacing:1px;cursor:pointer;">
+            🎲 SORTEAR AGORA (MANUAL)
+          </button>
+          <div id="sorteioVagasResultado" style="display:none;font-size:12px;font-family:var(--font-display);letter-spacing:0.5px;padding:8px;border-radius:8px;"></div>
+          <div id="sorteioVagasInfo" style="font-size:10px;color:var(--text-dim);margin-top:2px;"></div>
+        </div>
       </div>` : ''}`;
 
     // Carrega moradores do Firestore de forma assíncrona
@@ -5386,6 +5667,7 @@
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
               <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:rgba(213,0,249,0.1);border:1px solid rgba(213,0,249,0.35);color:var(--purple);">Apto ${sanitizeHTML(m.apto)}${m.bloco ? ' / Bloco '+sanitizeHTML(m.bloco) : ''}</span>
               ${m.vaga ? `<span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.35);color:var(--cyan);">🚗 Vaga ${sanitizeHTML(m.vaga)}${m.andarVaga ? ' — '+sanitizeHTML(m.andarVaga) : ''}</span>` : ''}
+              ${(m.veiculoPlaca || m.veiculoModelo || m.veiculoCor) ? `<span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:rgba(255,171,0,0.1);border:1px solid rgba(255,171,0,0.35);color:var(--amber);">${[m.veiculoModelo, m.veiculoCor, m.veiculoPlaca].filter(Boolean).map(sanitizeHTML).join(' • ')}</span>` : ''}
               <span style="font-family:var(--font-display);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:6px;background:${m.status==='ativo'?'rgba(0,230,118,0.1)':'rgba(255,171,0,0.1)'};border:1px solid ${m.status==='ativo'?'rgba(0,230,118,0.35)':'rgba(255,171,0,0.35)'};color:${m.status==='ativo'?'var(--green)':'var(--amber)'};">${m.status === 'ativo' ? '✓ Ativo' : '⏳ Aguardando'} ${m.status !== 'ativo' ? '— Código: '+sanitizeHTML(m.codigoConvite) : ''}</span>
             </div>
             <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${sanitizeHTML(m.email)}</div>
@@ -5425,8 +5707,71 @@
         const el = document.getElementById('listaPorteirosFirestore');
         if (el) el.textContent = 'Erro ao carregar porteiros.';
       });
+
+      // Preenche o painel de sorteio de vagas com a configuração salva
+      kvVagas.getConfig().then(cfg => {
+        const dataEl = document.getElementById('sorteioVagasData');
+        const ativoEl = document.getElementById('sorteioVagasAtivo');
+        const infoEl = document.getElementById('sorteioVagasInfo');
+        if (dataEl) dataEl.value = cfg.dataProgramada || '';
+        if (ativoEl) ativoEl.checked = !!cfg.ativo;
+        if (infoEl) infoEl.textContent = cfg.ultimoSorteioAno
+          ? `Último sorteio realizado em ${cfg.ultimoSorteioAno}.`
+          : 'Nenhum sorteio realizado ainda.';
+      }).catch(() => {});
     }
   }
+
+  window.salvarConfigSorteioVagas = async function() {
+    const data = document.getElementById('sorteioVagasData').value;
+    const ativo = document.getElementById('sorteioVagasAtivo').checked;
+    const resultado = document.getElementById('sorteioVagasResultado');
+    if (ativo && !data) {
+      resultado.style.display = 'block';
+      resultado.style.background = 'rgba(255,171,0,0.1)';
+      resultado.style.color = 'var(--amber)';
+      resultado.textContent = '⚠ Defina uma data antes de ativar.';
+      return;
+    }
+    try {
+      await kvVagas.salvarConfig({ dataProgramada: data, ativo, frequenciaAnos: 1 });
+      resultado.style.display = 'block';
+      resultado.style.background = 'rgba(0,230,118,0.1)';
+      resultado.style.color = 'var(--green)';
+      resultado.textContent = '✅ Programação salva!';
+      setTimeout(() => { resultado.style.display = 'none'; }, 3000);
+    } catch (e) {
+      resultado.style.display = 'block';
+      resultado.style.background = 'rgba(255,23,68,0.1)';
+      resultado.style.color = 'var(--red)';
+      resultado.textContent = '⚠ Erro: ' + e.message;
+    }
+  };
+
+  window.sortearVagasAgora = async function() {
+    const confirmado = confirm('Sortear as vagas agora, fora da data programada?\n\nIsso reorganiza imediatamente a vaga de todos os moradores que têm vaga cadastrada. Essa ação não pode ser desfeita.');
+    if (!confirmado) return;
+    const resultado = document.getElementById('sorteioVagasResultado');
+    try {
+      const r = await kvVagas.sortearAgora();
+      resultado.style.display = 'block';
+      if (r.ok) {
+        resultado.style.background = 'rgba(0,230,118,0.1)';
+        resultado.style.color = 'var(--green)';
+        resultado.textContent = `✅ Sorteio realizado entre ${r.participantes} moradores!`;
+        renderGerenciarUsuarios();
+      } else {
+        resultado.style.background = 'rgba(255,171,0,0.1)';
+        resultado.style.color = 'var(--amber)';
+        resultado.textContent = '⚠ É preciso pelo menos 2 moradores com vaga cadastrada pra sortear.';
+      }
+    } catch (e) {
+      resultado.style.display = 'block';
+      resultado.style.background = 'rgba(255,23,68,0.1)';
+      resultado.style.color = 'var(--red)';
+      resultado.textContent = '⚠ Erro: ' + e.message;
+    }
+  };
 
   window.adminExcluirPorteiro = async function(id, nome, uid) {
     const confirmado = confirm(`Excluir "${nome}" da equipe?\n\nIsso remove o cadastro e revoga o acesso ao app. Essa ação não pode ser desfeita.`);
@@ -11603,13 +11948,14 @@ const kvMoradores = (() => {
     return codigo;
   }
 
-  async function cadastrarMorador({ nome, apto, bloco, vaga, andarVaga, telefone }) {
+  async function cadastrarMorador({ nome, apto, bloco, vaga, andarVaga, veiculoModelo, veiculoCor, veiculoPlaca, telefone }) {
     if (!nome || !apto) throw new Error('Nome e apto são obrigatórios.');
     if (!telefone) throw new Error('Telefone é obrigatório.');
     const condominioId = condominioIdAtivo();
     const codigoConvite = gerarCodigoConvite();
     const ref = await colMoradores().add({
       nome, apto, bloco: bloco || '', vaga: vaga || '', andarVaga: andarVaga || '',
+      veiculoModelo: veiculoModelo || '', veiculoCor: veiculoCor || '', veiculoPlaca: veiculoPlaca || '',
       telefone: telefone.trim(),
       // "email" não é mais preenchido aqui pelo síndico — o próprio
       // morador digita o dele no primeiro acesso (evita conta presa a um
@@ -13513,6 +13859,9 @@ async function adminCadastrarMoradorFirebase() {
     const bloco    = document.getElementById('admMoradorBloco').value.trim();
     const vaga     = document.getElementById('admMoradorVaga').value.trim();
     const andarVaga = document.getElementById('admMoradorAndarVaga').value.trim();
+    const veiculoModelo = document.getElementById('admMoradorVeiculoModelo').value.trim();
+    const veiculoCor    = document.getElementById('admMoradorVeiculoCor').value.trim();
+    const veiculoPlaca  = document.getElementById('admMoradorVeiculoPlaca').value.trim();
     const telefone = document.getElementById('admMoradorTelefone').value.trim();
 
     if (!telefone) {
@@ -13528,7 +13877,7 @@ async function adminCadastrarMoradorFirebase() {
       return;
     }
 
-    const { codigoConvite } = await kvMoradores.cadastrarMorador({ nome, apto, bloco, vaga, andarVaga, telefone });
+    const { codigoConvite } = await kvMoradores.cadastrarMorador({ nome, apto, bloco, vaga, andarVaga, veiculoModelo, veiculoCor, veiculoPlaca, telefone });
 
     // Monta o link do WhatsApp com o convite já pronto: código de acesso + link do app.
     const linkApp = window.location.origin + window.location.pathname;
@@ -13554,6 +13903,9 @@ async function adminCadastrarMoradorFirebase() {
     document.getElementById('admMoradorBloco').value = '';
     document.getElementById('admMoradorVaga').value = '';
     document.getElementById('admMoradorAndarVaga').value = '';
+    document.getElementById('admMoradorVeiculoModelo').value = '';
+    document.getElementById('admMoradorVeiculoCor').value = '';
+    document.getElementById('admMoradorVeiculoPlaca').value = '';
     document.getElementById('admMoradorTelefone').value = '';
   } catch (e) {
     resEl.style.display = 'block';
