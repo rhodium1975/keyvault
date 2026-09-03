@@ -5729,7 +5729,12 @@
                 onfocus="kvVeiculoSugestoes.render(this.value)">
               <div id="admMoradorVeiculoModeloSugestoes" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;max-height:220px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
             </div>
-            <input type="text" id="admMoradorVeiculoCor" placeholder="Cor (opc.)" class="login-input" style="flex:1;min-width:70px;">
+            <div id="admMoradorVeiculoCorWrap" style="position:relative;flex:1;min-width:70px;">
+              <input type="text" id="admMoradorVeiculoCor" placeholder="Cor (opc.)" class="login-input" style="width:100%;" autocomplete="off"
+                oninput="kvVeiculoCorSugestoes.render(this.value)"
+                onfocus="kvVeiculoCorSugestoes.render(this.value)">
+              <div id="admMoradorVeiculoCorSugestoes" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;max-height:220px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
+            </div>
             <input type="text" id="admMoradorVeiculoPlaca" placeholder="Placa (opc.)" class="login-input" style="flex:1;min-width:70px;" maxlength="8" oninput="this.value=this.value.toUpperCase()">
           </div>
           <input type="tel" id="admMoradorTelefone" placeholder="Telefone com DDD (ex: 11987654321)" class="login-input" style="width:100%;" oninput="mascararCelular(this)" maxlength="15">
@@ -10924,6 +10929,66 @@ const kvVeiculoSugestoes = (() => {
 
   document.addEventListener('click', function(e) {
     const wrap = document.getElementById('admMoradorVeiculoModeloWrap');
+    if (wrap && !wrap.contains(e.target)) fechar();
+  });
+
+  return { render, escolher, fechar };
+})();
+</script>
+
+<script>
+// ── SUGESTÕES DE COR DO VEÍCULO ──
+const KV_CORES_VEICULOS = [
+  { nome: 'Branco',   hex: '#f5f5f5' },
+  { nome: 'Preto',    hex: '#1a1a1a' },
+  { nome: 'Prata',    hex: '#c0c0c8' },
+  { nome: 'Cinza',    hex: '#7c7c84' },
+  { nome: 'Vermelho', hex: '#e53935' },
+  { nome: 'Azul',     hex: '#1e88e5' },
+  { nome: 'Verde',    hex: '#43a047' },
+  { nome: 'Bege',     hex: '#e8d3a8' },
+  { nome: 'Amarelo',  hex: '#fdd835' },
+  { nome: 'Marrom',   hex: '#6d4c30' },
+  { nome: 'Laranja',  hex: '#fb8c00' },
+  { nome: 'Dourado',  hex: '#c9a227' },
+  { nome: 'Roxo',     hex: '#8e24aa' },
+  { nome: 'Rosa',     hex: '#ec407a' },
+];
+
+const kvVeiculoCorSugestoes = (() => {
+  const INPUT_ID = 'admMoradorVeiculoCor';
+  const PANEL_ID = 'admMoradorVeiculoCorSugestoes';
+
+  function render(filtro) {
+    const panel = document.getElementById(PANEL_ID);
+    if (!panel) return;
+    const termo = (filtro || '').trim().toLowerCase();
+    const filtradas = termo ? KV_CORES_VEICULOS.filter(c => c.nome.toLowerCase().includes(termo)) : KV_CORES_VEICULOS;
+
+    if (!filtradas.length) { panel.style.display = 'none'; panel.innerHTML = ''; return; }
+
+    panel.innerHTML = filtradas.map(c => `
+      <div onclick="kvVeiculoCorSugestoes.escolher('${c.nome}')" onmousedown="event.preventDefault()" style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:13px;color:#e8feff;cursor:pointer;">
+        <span style="width:14px;height:14px;border-radius:50%;background:${c.hex};border:1px solid rgba(255,255,255,0.25);flex-shrink:0;"></span>
+        ${sanitizeHTML(c.nome)}
+      </div>
+    `).join('');
+    panel.style.display = 'block';
+  }
+
+  function escolher(nome) {
+    const input = document.getElementById(INPUT_ID);
+    if (input) input.value = nome;
+    fechar();
+  }
+
+  function fechar() {
+    const panel = document.getElementById(PANEL_ID);
+    if (panel) panel.style.display = 'none';
+  }
+
+  document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('admMoradorVeiculoCorWrap');
     if (wrap && !wrap.contains(e.target)) fechar();
   });
 
