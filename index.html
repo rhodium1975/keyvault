@@ -76,6 +76,13 @@
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
+  /* Desliga o "aumento automático de fonte" do Chrome/Android. Sem isso,
+     em telas estreitas o navegador engorda o texto sozinho pra tentar
+     melhorar a leitura, mas como o layout usa alturas/margens fixas em
+     pixels, o texto cresce mais que a linha reserva pra ele e acaba
+     sobrepondo o conteúdo de baixo (ex.: nome da chave em cima do ID). */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
   body {
     background: var(--bg);
     color: var(--text);
@@ -2177,7 +2184,7 @@
 
   /* ── LOCKED OVERLAY ON CARD ── */
   .adm-lock-badge {
-    position: absolute; top: 8px; left: 8px;
+    display: inline-flex; align-items: center; flex-shrink: 0;
     background: rgba(255,171,0,0.18); border: 1px solid rgba(255,171,0,0.4);
     color: var(--amber);
     font-family: var(--font-display); font-size: 8px;
@@ -7248,7 +7255,6 @@
       const _lockBadge = (_isAdmCat && _isMorador) ? '<span class="adm-lock-badge">🔐 ADM</span>' : (_isAptCat && !_userIsAdmin ? '<span class="adm-lock-badge" style="background:rgba(255,23,68,0.12);border-color:rgba(255,23,68,0.35);color:var(--red)">🔒 Restrito</span>' : '');
 
       return `<div class="chave-card ${c.status}" data-id="${c.id}" style="animation-delay:${i*0.04}s;cursor:${_isLocked?'not-allowed':'grab'};position:relative;${_lockStyle}">
-        ${_lockBadge}
         <button class="card-del-btn" onclick="cardDelClick(event,'${c.id}')" title="Excluir chave" ${!_userIsAdmin ? 'style="display:none"' : ''}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
@@ -7257,6 +7263,7 @@
         </button>
         <div class="card-top">
           <div class="card-top-left">
+            ${_lockBadge}
             <span class="card-id" style="display:inline-flex;align-items:center;gap:5px;">
               ${c.id}
               <button class="edit-id-btn" onclick="editarId(event,'${c.id}')" title="Editar ID" ${!_userIsAdmin ? 'style="display:none"' : ''}>
