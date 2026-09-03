@@ -3193,7 +3193,7 @@
         <div style="display:flex;align-items:center;gap:6px;">
           <svg class="enc-toggle-arrow" id="encToggleArrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
           <span class="enc-count-badge" id="encCountBadge" style="background: rgba(213, 0, 249, 0.22); border-color: rgba(213, 0, 249, 0.5);">2</span>
-          <span class="enc-title">📦 Encomendas</span>
+          <span class="enc-title" style="display:none;">📦 Encomendas</span>
         </div>
         <!-- Botão Paleta de Cores -->
         <button class="enc-palette-btn" id="encPaletteBtn" onclick="event.stopPropagation(); toggleEncColorPanel()" title="Personalizar cores">
@@ -3274,7 +3274,7 @@
       <div style="display:flex;align-items:center;gap:6px;">
         <svg class="prest-toggle-arrow" id="prestToggleArrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
         <span class="prest-count-badge" id="prestCountBadge" style="background: rgba(0, 229, 255, 0.06);">0</span>
-        <span class="prest-title">🔧 Prestadores</span>
+        <span class="prest-title" style="display:none;">🔧 Prestadores</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation()">
         <button class="prest-add-btn" id="prestBtnAgendar" onclick="kvPrest.abrirModal()">
@@ -3402,7 +3402,7 @@
       <div style="display:flex;align-items:center;gap:6px;">
         <svg class="prest-toggle-arrow" id="enqToggleArrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
         <span class="prest-count-badge" id="enqCountBadge" style="background: rgba(0, 229, 255, 0.06);">0</span>
-        <span class="prest-title" id="enqTitleLabel">📊 Enquetes</span>
+        <span class="prest-title" id="enqTitleLabel" style="display:none;">📊 Enquetes</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation()">
         <button class="prest-add-btn" id="enqBtnCriar" onclick="kvEnquetes.abrirModalCriar()" style="display:none;">
@@ -3520,7 +3520,7 @@
       <div style="display:flex;align-items:center;gap:6px;">
         <svg class="prest-toggle-arrow" id="visitToggleArrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
         <span class="prest-count-badge" id="visitCountBadge" style="background: rgba(0, 229, 255, 0.06);">0</span>
-        <span class="prest-title" id="visitTitleLabel">👥 Visitantes</span>
+        <span class="prest-title" id="visitTitleLabel" style="display:none;">👥 Visitantes</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation()">
         <button class="prest-add-btn" id="visitBtnAgendar" onclick="kvVisitantes.toggleForm()" style="display:none;">
