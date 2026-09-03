@@ -10863,7 +10863,24 @@ window.mascararCelular = function(el) {
 // Pra adicionar outra marca no futuro, basta incluir um novo objeto
 // { marca: 'Nome', modelos: ['Modelo 1', 'Modelo 2', ...] } na lista abaixo.
 const KV_MARCAS_VEICULOS = [
-  { marca: 'Audi', modelos: ['Audi A3', 'Audi A5', 'Audi A6', 'Audi A6 e-tron', 'Audi Q3', 'Audi Q5', 'Audi Q6 e-tron', 'Audi Q7', 'Audi Q8'] },
+  { marca: 'Audi', modelos: ['Audi A3', 'Audi A4', 'Audi A5', 'Audi A6', 'Audi Q3', 'Audi Q5', 'Audi Q7', 'Audi Q8', 'Audi e-tron / Q8 e-tron', 'Audi A3 Sedan'] },
+  { marca: 'BMW', modelos: ['BMW 118i / 120i', 'BMW 220i', 'BMW 320i', 'BMW 330i', 'BMW 420i', 'BMW 530i', 'BMW X1', 'BMW X2', 'BMW X3', 'BMW X4', 'BMW X5', 'BMW X6', 'BMW X7', 'BMW i4', 'BMW iX', 'BMW M2 / M3 / M4'] },
+  { marca: 'BYD', modelos: ['BYD Dolphin', 'BYD Dolphin Mini', 'BYD Yuan Plus', 'BYD Yuan Pro', 'BYD Song Plus', 'BYD Song Pro', 'BYD King', 'BYD Seal', 'BYD Tan', 'BYD Han', 'BYD Shark', 'BYD Song Plus DM-i'] },
+  { marca: 'Caoa Chery', modelos: ['Chery Tiggo 2', 'Chery Tiggo 3X', 'Chery Tiggo 5X', 'Chery Tiggo 7', 'Chery Tiggo 8', 'Chery Arrizo 5', 'Chery Arrizo 6', 'Chery Arrizo 6 Pro', 'Chery iCar'] },
+  { marca: 'Chevrolet', modelos: ['Chevrolet Onix', 'Chevrolet Onix Plus', 'Chevrolet Prisma', 'Chevrolet Celta', 'Chevrolet Corsa', 'Chevrolet Classic', 'Chevrolet Cruze', 'Chevrolet Cruze Sport6', 'Chevrolet Cobalt', 'Chevrolet Spin', 'Chevrolet Tracker', 'Chevrolet Equinox', 'Chevrolet Trailblazer', 'Chevrolet Montana', 'Chevrolet S10', 'Chevrolet Camaro'] },
+  { marca: 'Citroën', modelos: ['Citroën C3', 'Citroën C3 Aircross', 'Citroën C4 Cactus', 'Citroën C4', 'Citroën C4 Lounge', 'Citroën Aircross', 'Citroën Berlingo', 'Citroën Jumpy'] },
+  { marca: 'Fiat', modelos: ['Fiat Mobi', 'Fiat Argo', 'Fiat Cronos', 'Fiat Uno', 'Fiat Palio', 'Fiat Siena', 'Fiat Grand Siena', 'Fiat Punto', 'Fiat Strada', 'Fiat Toro', 'Fiat Fiorino', 'Fiat Pulse', 'Fiat Fastback', 'Fiat 500', 'Fiat Doblo'] },
+  { marca: 'Ford', modelos: ['Ford Ka', 'Ford Ka Sedan', 'Ford Fiesta', 'Ford Focus', 'Ford Fusion', 'Ford EcoSport', 'Ford Territory', 'Ford Bronco', 'Ford Bronco Sport', 'Ford Maverick', 'Ford Ranger', 'Ford Edge', 'Ford Mustang', 'Ford Explorer'] },
+  { marca: 'GWM', modelos: ['GWM Haval H6', 'GWM Haval H6 GT', 'GWM Haval H6 HEV', 'GWM Haval H6 PHEV', 'GWM Haval H6 Premium', 'GWM Ora 03', 'GWM Poer', 'GWM Tank 300'] },
+  { marca: 'Honda', modelos: ['Honda Fit', 'Honda City', 'Honda City Hatchback', 'Honda Civic', 'Honda Accord', 'Honda HR-V', 'Honda WR-V', 'Honda CR-V', 'Honda ZR-V'] },
+  { marca: 'Hyundai', modelos: ['Hyundai HB20', 'Hyundai HB20S', 'Hyundai HB20X', 'Hyundai Creta', 'Hyundai Tucson', 'Hyundai ix35', 'Hyundai Santa Fe', 'Hyundai Azera', 'Hyundai i30', 'Hyundai Elantra', 'Hyundai Kona', 'Hyundai HR'] },
+  { marca: 'Jeep', modelos: ['Jeep Renegade', 'Jeep Compass', 'Jeep Commander', 'Jeep Wrangler', 'Jeep Grand Cherokee', 'Jeep Gladiator', 'Jeep Avenger'] },
+  { marca: 'Kia', modelos: ['Kia Picanto', 'Kia Cerato', 'Kia Stonic', 'Kia Sportage', 'Kia Sorento', 'Kia Carnival', 'Kia Seltos', 'Kia Soul', 'Kia K5', 'Kia Bongo'] },
+  { marca: 'Mercedes-Benz', modelos: ['Mercedes-Benz Classe A', 'Mercedes-Benz Classe B', 'Mercedes-Benz CLA', 'Mercedes-Benz C180 / C200 / C300', 'Mercedes-Benz Classe E', 'Mercedes-Benz Classe S', 'Mercedes-Benz GLA', 'Mercedes-Benz GLB', 'Mercedes-Benz GLC', 'Mercedes-Benz GLE', 'Mercedes-Benz GLS', 'Mercedes-Benz Classe G', 'Mercedes-Benz Sprinter', 'Mercedes-Benz Vito'] },
+  { marca: 'Mitsubishi', modelos: ['Mitsubishi Lancer', 'Mitsubishi ASX', 'Mitsubishi Outlander', 'Mitsubishi Eclipse Cross', 'Mitsubishi Pajero', 'Mitsubishi Pajero TR4', 'Mitsubishi Pajero Sport', 'Mitsubishi L200 Triton', 'Mitsubishi Airtrek'] },
+  { marca: 'Nissan', modelos: ['Nissan March', 'Nissan Versa', 'Nissan Sentra', 'Nissan Kicks', 'Nissan Kicks Play', 'Nissan X-Trail', 'Nissan Frontier', 'Nissan Leaf'] },
+  { marca: 'Peugeot', modelos: ['Peugeot 208', 'Peugeot 2008', 'Peugeot 308', 'Peugeot 408', 'Peugeot 3008', 'Peugeot 5008', 'Peugeot Partner', 'Peugeot Expert'] },
+  { marca: 'Renault', modelos: ['Renault Kwid', 'Renault Sandero', 'Renault Logan', 'Renault Clio', 'Renault Symbol', 'Renault Fluence', 'Renault Duster', 'Renault Captur', 'Renault Oroch', 'Renault Kardian', 'Renault Megane', 'Renault Master'] },
 ];
 
 const kvVeiculoSugestoes = (() => {
