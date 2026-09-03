@@ -2955,6 +2955,40 @@
   }
 
   /* ══════════════════════════════════════════
+     GRID DE CHAVES NO CELULAR (Android/iOS)
+     Cards lado a lado (2 colunas) em telas de
+     até 899px, com tipografia/paddings reduzidos
+     para o conteúdo caber sem espremer.
+  ══════════════════════════════════════════ */
+  @media (max-width: 899px) {
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      align-items: start;
+    }
+    .chave-card { padding: 9px 8px; border-radius: 9px; }
+    .card-top { padding-right: 22px; margin-bottom: 4px; gap: 4px; flex-wrap: wrap; }
+    .card-top-left { gap: 2px; }
+    .card-id { font-size: 8px; letter-spacing: 1px; }
+    .card-id .edit-id-btn svg { width: 8px; height: 8px; }
+    .card-cat { font-size: 7px; padding: 1px 5px; letter-spacing: 0.4px; line-height: 1.4; }
+    .card-cat svg { width: 6px; height: 6px; }
+    .card-nome { font-size: 12px; gap: 4px; }
+    .card-nome .edit-id-btn svg { width: 8px; height: 8px; }
+    .card-tipo-badge { font-size: 9px; }
+    .card-info { font-size: 9px; gap: 6px; }
+    .badge { font-size: 7px; padding: 2px 6px; letter-spacing: 1px; }
+    .card-del-btn { width: 20px; height: 20px; top: 6px; right: 6px; }
+    .card-del-btn svg { width: 10px; height: 10px; }
+  }
+
+  /* Telas bem estreitas: volta para 1 coluna pra não espremer demais */
+  @media (max-width: 340px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  /* ══════════════════════════════════════════
      DESKTOP RESPONSIVE LAYER
      Adiciona suporte a telas grandes sem alterar
      o comportamento mobile existente. Estas regras
