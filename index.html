@@ -3174,6 +3174,24 @@
 </style>
 </head>
 <body>
+
+<!-- BLOQUEIO: E-MAIL NÃO VERIFICADO — cobre a tela inteira, sem "x" pra
+     fechar. Só some quando o Firebase confirma que o link do e-mail foi
+     clicado (emailVerified === true). -->
+<div id="emailVerifBlockOverlay" style="display:none;position:fixed;inset:0;z-index:999999;background:rgba(4,10,14,0.97);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px;">
+  <div style="max-width:380px;width:100%;border:1px solid var(--amber);border-radius:16px;background:var(--bg2);padding:28px 22px;text-align:center;">
+    <div style="font-size:40px;margin-bottom:12px;">✉️</div>
+    <div style="font-family:var(--font-display);font-size:14px;letter-spacing:1px;color:var(--amber);margin-bottom:10px;text-transform:uppercase;">Confirme seu e-mail</div>
+    <div style="font-size:13px;color:var(--text-dim);line-height:1.5;margin-bottom:18px;">
+      Enviamos um link de confirmação para <strong id="emailVerifBlockEndereco" style="color:var(--cyan);"></strong>.
+      Abra o e-mail e clique no link antes de continuar — isso garante que o endereço cadastrado é de verdade.
+    </div>
+    <button type="button" onclick="verificarSeJaConfirmouEmail()" id="emailVerifBlockCheckBtn" style="width:100%;padding:11px;border-radius:8px;border:1px solid var(--cyan);background:var(--cyan);color:#000;font-family:var(--font-display);font-size:11px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;">JÁ CONFIRMEI — VERIFICAR</button>
+    <button type="button" onclick="reenviarVerificacaoEmailBloqueio()" id="emailVerifBlockResendBtn" style="width:100%;padding:11px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--font-display);font-size:11px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;">REENVIAR E-MAIL</button>
+    <button type="button" onclick="fazerLogout()" style="width:100%;padding:11px;border-radius:8px;border:none;background:transparent;color:var(--text-dim);font-family:var(--font-display);font-size:10px;letter-spacing:1px;cursor:pointer;text-decoration:underline;">Errei o e-mail no cadastro — sair e corrigir</button>
+  </div>
+</div>
+
 <div class="app">
 
   <!-- COMPANY LOGO BANNER -->
@@ -3252,17 +3270,6 @@
       <span id="minhaVagaCardChevron" style="transition:transform 0.2s;">▾</span>
     </div>
     <div id="minhaVagaCardBody" style="display:none;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 18px;font-size:13px;color:#e8feff;padding:0 0 14px;"></div>
-  </div>
-
-  <!-- AVISO DE E-MAIL NÃO VERIFICADO -->
-  <div id="emailVerifBanner" style="display:none;margin:10px 14px 0;padding:10px 14px;border-radius:10px;border:1px solid var(--amber);background:rgba(255,171,0,0.1);align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-    <div style="font-size:12px;color:var(--amber);">
-      ✉️ Confirme seu e-mail (<span id="emailVerifEndereco"></span>) — é ele que usamos pra recuperar sua senha se você esquecer. Se não for o seu e-mail correto, avise a administração.
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <button type="button" onclick="reenviarVerificacaoEmail()" id="emailVerifBtn" style="font-family:var(--font-display);font-size:9px;letter-spacing:1px;padding:6px 10px;border-radius:6px;border:1px solid var(--amber);background:transparent;color:var(--amber);cursor:pointer;white-space:nowrap;">REENVIAR E-MAIL</button>
-      <span onclick="dispensarAvisoVerificacaoEmail()" title="Já confirmei / dispensar por agora" style="cursor:pointer;color:var(--text-dim);font-size:16px;line-height:1;padding:2px 4px;">✕</span>
-    </div>
   </div>
 
   <!-- AVISO: SORTEIO DE VAGAS PRÓXIMO -->
@@ -5317,26 +5324,50 @@
   }
   window.atualizarSessionBadge = atualizarSessionBadge;
 
-  // ── AVISO DE E-MAIL NÃO VERIFICADO ──
-  // Dispara sempre que alguém loga (mesmo padrão de 'kv-login' já usado
-  // no resto do app). Recarrega o usuário do Firebase Auth pra pegar o
-  // status atualizado de emailVerified (o SDK não atualiza sozinho depois
-  // que a pessoa clica no link do e-mail).
-  async function verificarStatusEmail() {
+  // ── BLOQUEIO DE E-MAIL NÃO VERIFICADO ──
+  // Antes, isso era só um banner dispensável — dava pra fechar e ignorar
+  // pra sempre, então cadastrar com um e-mail falso (formato válido, mas
+  // endereço que não existe) não impedia nada. Agora, quem não confirma
+  // o e-mail (Firebase Auth checa isso de verdade, não é só formato) fica
+  // travado numa tela cheia até clicar no link recebido por e-mail.
+  //
+  // Dispara em 2 casos, igual ao padrão já usado por kvVagas mais abaixo:
+  //  1) 'kv-login' — login manual feito agora mesmo.
+  //  2) firebase.auth().onAuthStateChanged — sessão restaurada ao reabrir
+  //     o app (sem passar pela tela de login de novo). Sem isso, dava pra
+  //     contornar o bloqueio simplesmente fechando e reabrindo o app.
+  async function verificarBloqueioEmailNaoVerificado() {
+    const overlay = document.getElementById('emailVerifBlockOverlay');
     const user = firebase.auth().currentUser;
-    const banner = document.getElementById('emailVerifBanner');
-    if (!user || !banner) return;
-    try { await user.reload(); } catch (e) { /* offline ou sessão expirando — ignora */ }
-    const jaDispensouNestaSessao = sessionStorage.getItem('kv_email_verif_dispensado_' + user.uid) === '1';
-    if (!firebase.auth().currentUser || firebase.auth().currentUser.emailVerified || jaDispensouNestaSessao) {
-      banner.style.display = 'none';
-      return;
+    if (!overlay) return;
+    if (!user) { overlay.style.display = 'none'; return; }
+    try { await user.reload(); } catch (e) { /* offline — não trava por causa disso, mantém estado atual */ }
+    const userAtual = firebase.auth().currentUser;
+    if (!userAtual) { overlay.style.display = 'none'; return; }
+    if (userAtual.emailVerified) {
+      overlay.style.display = 'none';
+    } else {
+      document.getElementById('emailVerifBlockEndereco').textContent = userAtual.email || '';
+      overlay.style.display = 'flex';
     }
-    document.getElementById('emailVerifEndereco').textContent = user.email || '';
-    banner.style.display = 'flex';
   }
-  window.reenviarVerificacaoEmail = async function() {
-    const btn = document.getElementById('emailVerifBtn');
+  window.verificarBloqueioEmailNaoVerificado = verificarBloqueioEmailNaoVerificado;
+
+  window.verificarSeJaConfirmouEmail = async function() {
+    const btn = document.getElementById('emailVerifBlockCheckBtn');
+    const txtOriginal = btn.textContent;
+    btn.disabled = true; btn.textContent = 'VERIFICANDO...';
+    await verificarBloqueioEmailNaoVerificado();
+    btn.disabled = false; btn.textContent = txtOriginal;
+    const overlay = document.getElementById('emailVerifBlockOverlay');
+    if (overlay && overlay.style.display !== 'none') {
+      btn.textContent = 'AINDA NÃO CONFIRMADO';
+      setTimeout(() => { btn.textContent = txtOriginal; }, 2200);
+    }
+  };
+
+  window.reenviarVerificacaoEmailBloqueio = async function() {
+    const btn = document.getElementById('emailVerifBlockResendBtn');
     const user = firebase.auth().currentUser;
     if (!user) return;
     const txtOriginal = btn.textContent;
@@ -5350,13 +5381,30 @@
       alert('Não foi possível enviar agora: ' + e.message);
     }
   };
-  window.dispensarAvisoVerificacaoEmail = function() {
-    const user = firebase.auth().currentUser;
-    if (user) sessionStorage.setItem('kv_email_verif_dispensado_' + user.uid, '1');
-    const banner = document.getElementById('emailVerifBanner');
-    if (banner) banner.style.display = 'none';
-  };
-  document.addEventListener('kv-login', function() { setTimeout(verificarStatusEmail, 800); });
+
+  document.addEventListener('kv-login', function() { setTimeout(verificarBloqueioEmailNaoVerificado, 700); });
+
+  // Cobre reabrir o app já logado (sessão restaurada pelo Firebase sem
+  // passar pela tela de login de novo) — mesmo padrão do kvVagas mais
+  // abaixo. Sem isso, bastava fechar e reabrir pra escapar do bloqueio.
+  window._kvEmailBlockSessaoJaChecada = false;
+  document.addEventListener('kv-logout', function() {
+    window._kvEmailBlockSessaoJaChecada = false;
+    const overlay = document.getElementById('emailVerifBlockOverlay');
+    if (overlay) overlay.style.display = 'none';
+  });
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (!user || window._kvEmailBlockSessaoJaChecada) return;
+    const tentar = () => {
+      if (!window.KV_AUTH || !KV_AUTH.isLoggedIn || !KV_AUTH.isLoggedIn()) {
+        setTimeout(tentar, 400);
+        return;
+      }
+      window._kvEmailBlockSessaoJaChecada = true;
+      verificarBloqueioEmailNaoVerificado();
+    };
+    setTimeout(tentar, 700);
+  });
 
 
   // ══════════════════════════════════════════════════════════════
