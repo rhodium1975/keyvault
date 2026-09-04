@@ -4885,12 +4885,27 @@
   </div>
   <div style="font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--amber);opacity:0.6;margin:10px 0 8px;text-transform:uppercase;">🔧 Prestadores</div>
   <div class="help-item">
-    <div class="help-cmd">"agendar prestador" / "nova visita"</div>
+    <div class="help-cmd">"prestadores" / "agendar prestador" / "nova visita"</div>
     <div class="help-desc">Abre o formulário de agendamento</div>
   </div>
+  <div style="font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--green);opacity:0.6;margin:10px 0 8px;text-transform:uppercase;">🔑 Claviculário</div>
   <div class="help-item">
-    <div class="help-cmd">"prestadores" / "agendamentos"</div>
-    <div class="help-desc">Rola para a seção de prestadores</div>
+    <div class="help-cmd">"chaves" / "claviculário"</div>
+    <div class="help-desc">Mostra a seção de chaves</div>
+  </div>
+  <div class="help-item">
+    <div class="help-cmd">"nova chave" / "cadastrar chave"</div>
+    <div class="help-desc">Abre o formulário de cadastro (só admin)</div>
+  </div>
+  <div style="font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--purple);opacity:0.6;margin:10px 0 8px;text-transform:uppercase;">📊 Enquetes</div>
+  <div class="help-item">
+    <div class="help-cmd">"enquetes" / "votação"</div>
+    <div class="help-desc">Síndico: abre o formulário. Demais: mostra a lista</div>
+  </div>
+  <div style="font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--red);opacity:0.6;margin:10px 0 8px;text-transform:uppercase;">👥 Visitantes</div>
+  <div class="help-item">
+    <div class="help-cmd">"visitantes"</div>
+    <div class="help-desc">Morador: abre o formulário. Equipe: mostra a lista</div>
   </div>
   <div style="font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--cyan);opacity:0.6;margin:10px 0 8px;text-transform:uppercase;">📋 Geral</div>
   <div class="help-item">
@@ -7716,6 +7731,20 @@
     `;
     catNova = 'apt';
     renderTipoSel(document.getElementById('tipoSel'));
+
+    // Se aberto via comando de voz: brilho leve no modal pra identificar
+    if (window._vozAbrirChave) {
+      window._vozAbrirChave = false;
+      setTimeout(() => {
+        const chModal = document.getElementById('modal');
+        if (chModal) {
+          void chModal.offsetWidth;
+          chModal.classList.add('voice-modal-glow-leve');
+          setTimeout(() => chModal.classList.remove('voice-modal-glow-leve'), 1900);
+        }
+        if (navigator.vibrate) navigator.vibrate(25);
+      }, 150);
+    }
   }
 
   function renderTipoSel(container) {
@@ -8853,6 +8882,67 @@
       autoHideToast(2500);
     }
 
+    // Expande e destaca (brilho leve) a seção do claviculário — usado
+    // como visão geral por voz e como fallback pra quem não pode
+    // cadastrar chave (porteiro/morador).
+    function mostrarClaviculario(cmd) {
+      const wrap = document.getElementById('chavesCollapseWrap');
+      if (wrap && wrap.style.display === 'none' && typeof window.toggleChavesSector === 'function') {
+        window.toggleChavesSector();
+      }
+      const sector = document.getElementById('chavesSector');
+      if (sector) {
+        sector.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => {
+          void sector.offsetWidth;
+          sector.classList.add('voice-modal-glow-leve');
+          setTimeout(() => sector.classList.remove('voice-modal-glow-leve'), 1900);
+        }, 300);
+      }
+      showToast('success', 'Claviculário', cmd, 'Mostrando a seção de chaves.');
+      autoHideToast(2200);
+    }
+
+    // Enquetes: síndico cria (abre o modal com brilho); demais perfis só
+    // acompanham — expande a lista com o mesmo brilho leve.
+    function verEnquetes(cmd) {
+      if (window.kvEnquetes && typeof window.kvEnquetes.toggleList === 'function') {
+        const wrap = document.getElementById('enqListWrap');
+        if (wrap && wrap.style.display === 'none') window.kvEnquetes.toggleList();
+      }
+      const enqSector = document.getElementById('enqSector');
+      if (enqSector) {
+        enqSector.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => {
+          void enqSector.offsetWidth;
+          enqSector.classList.add('voice-modal-glow-leve');
+          setTimeout(() => enqSector.classList.remove('voice-modal-glow-leve'), 1900);
+        }, 300);
+      }
+      showToast('success', 'Enquetes', cmd, 'Mostrando a seção de enquetes.');
+      autoHideToast(2200);
+    }
+
+    // Visitantes: só o morador pode cadastrar (abre o form dele, com
+    // brilho); equipe (síndico/porteiro) só acompanha a lista.
+    function verVisitantes(cmd) {
+      if (window.kvVisitantes && typeof window.kvVisitantes.toggleLista === 'function') {
+        const wrap = document.getElementById('visitListWrap');
+        if (wrap && wrap.style.display === 'none') window.kvVisitantes.toggleLista();
+      }
+      const visitSector = document.getElementById('visitSector');
+      if (visitSector) {
+        visitSector.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => {
+          void visitSector.offsetWidth;
+          visitSector.classList.add('voice-modal-glow-leve');
+          setTimeout(() => visitSector.classList.remove('voice-modal-glow-leve'), 1900);
+        }, 300);
+      }
+      showToast('success', 'Visitantes', cmd, 'Mostrando a seção de visitantes.');
+      autoHideToast(2200);
+    }
+
     function encontrarChave(termo) {
       const t = normalizar(termo);
       // Match exato por ID
@@ -8913,7 +9003,11 @@
       }
 
       // ── FILTRAR ──
-      if (c.startsWith('filtrar') || c.startsWith('mostrar') || c.startsWith('ver')) {
+      // Restrito aos termos de filtro de verdade — antes, QUALQUER
+      // comando começando com "mostrar"/"ver" caía aqui (ex.: "mostrar
+      // encomendas", "mostrar chaves", "ver visitantes") e mostrava
+      // "Não entendi" antes de chegar nos blocos certos mais abaixo.
+      if (c.startsWith('filtrar') || ((c.startsWith('mostrar') || c.startsWith('ver')) && (c.includes('atrasa') || c.includes('retira') || c.includes('fora') || c.includes('dispon') || c.includes('livre') || c.includes('todas') || c.includes('todos') || c.includes('tudo')))) {
         if (c.includes('atrasa') || c.includes('atrasad')) {
           filtro = 'atrasada';
           document.querySelectorAll('.tab-btn').forEach(t => t.className='tab-btn');
@@ -8954,10 +9048,19 @@
       }
 
       // ── NOVA CHAVE ──
-      if ((c.includes('nova') && c.includes('chave')) || c.includes('cadastrar') || c.includes('adicionar chave')) {
-        abrirNovaChave();
-        showToast('success','Nova chave', cmd, 'Formulário de cadastro aberto.');
-        autoHideToast(2000);
+      // Só admin/síndico pode cadastrar (mesma regra do botão "Nova" na
+      // tela) — porteiro/morador caem no fallback de ver a seção.
+      // Corrigido: "cadastrar" sozinho colidia com "cadastrar visitante",
+      // "cadastrar prestador" etc. — agora exige a palavra "chave" junto.
+      if ((c.includes('nova') && c.includes('chave')) || (c.includes('cadastrar') && c.includes('chave')) || c.includes('adicionar chave')) {
+        if (window.KV_AUTH && KV_AUTH.isAdmin && KV_AUTH.isAdmin()) {
+          window._vozAbrirChave = true;
+          abrirNovaChave();
+          showToast('success','Nova chave', cmd, 'Formulário de cadastro aberto.');
+          autoHideToast(2000);
+        } else {
+          mostrarClaviculario(cmd);
+        }
         return;
       }
 
@@ -9021,26 +9124,64 @@
         return;
       }
 
-      // ── AGENDAR PRESTADOR ──
-      if ((c.includes('agendar') && (c.includes('prestador') || c.includes('servico') || c.includes('serviço') || c.includes('visita'))) || c.includes('novo prestador') || c.includes('nova visita')) {
+      // ── PRESTADORES ──
+      // Abre o formulário de agendar/solicitar prestador, mesmo sem
+      // nenhum registrado (kvPrest.abrirModal já ajusta título/botões
+      // automaticamente pro perfil de morador internamente).
+      if ((c.includes('agendar') && (c.includes('prestador') || c.includes('servico') || c.includes('serviço') || c.includes('visita'))) || c.includes('novo prestador') || c.includes('nova visita') || c.includes('prestador') || c.includes('agendamento') || c.includes('servico') || c.includes('serviço')) {
         if (window.kvPrest && typeof window.kvPrest.abrirModal === 'function') {
+          window._vozAbrirPrestador = true;
           window.kvPrest.abrirModal();
-          showToast('success','Agendar prestador', cmd, 'Formulário de agendamento aberto.');
+          showToast('success','Prestadores', cmd, 'Formulário de agendamento aberto.');
         } else { showToast('error','Erro', cmd, 'Função não disponível.'); }
         autoHideToast(2000);
         return;
       }
 
-      // ── PRESTADORES (abrir/ver seção) ──
-      if (c.includes('prestador') || c.includes('agendamento') || c.includes('servico') || c.includes('serviço')) {
-        if (window.kvPrest && typeof window.kvPrest.toggleList === 'function') {
-          const wrap = document.getElementById('prestListWrap');
-          if (wrap && !wrap.classList.contains('open')) window.kvPrest.toggleList({});
+      // ── ENQUETES ──
+      // Só o síndico cria (abre o formulário, com brilho). Porteiro e
+      // morador só acompanham — mostra a lista em vez do formulário
+      // restrito (kvEnquetes.abrirModalCriar já se recusa a abrir pra
+      // quem não é síndico, então aqui a gente confere antes).
+      if (c.includes('enquete') || c.includes('votacao') || c.includes('votação')) {
+        const isSindico = window.KV_AUTH && KV_AUTH.getRole && KV_AUTH.getRole() === 'sindico';
+        if (isSindico && window.kvEnquetes && typeof window.kvEnquetes.abrirModalCriar === 'function') {
+          window._vozAbrirEnquete = true;
+          window.kvEnquetes.abrirModalCriar();
+          showToast('success','Nova enquete', cmd, 'Formulário de enquete aberto.');
+          autoHideToast(2000);
+        } else {
+          verEnquetes(cmd);
         }
-        const prestSector = document.querySelector('.prest-sector');
-        if (prestSector) prestSector.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        showToast('success','Prestadores', cmd, 'Seção de prestadores destacada.');
-        autoHideToast(2500);
+        return;
+      }
+
+      // ── VISITANTES ──
+      // Só o morador cadastra (abre o formulário dele, com brilho).
+      // Equipe (síndico/porteiro) só acompanha — mostra a lista.
+      if (c.includes('visitante')) {
+        const role = window.KV_AUTH && KV_AUTH.getRole ? KV_AUTH.getRole() : null;
+        if (role === 'morador' && window.kvVisitantes && typeof window.kvVisitantes.toggleForm === 'function') {
+          if (window.kvVisitantes.toggleLista && document.getElementById('visitListWrap') && document.getElementById('visitListWrap').style.display === 'none') {
+            window.kvVisitantes.toggleLista();
+          }
+          window._vozAbrirVisitante = true;
+          if (!window._visitFormExpandido) window.kvVisitantes.toggleForm();
+          showToast('success','Visitantes', cmd, 'Formulário de visitante aberto.');
+          autoHideToast(2000);
+        } else {
+          verVisitantes(cmd);
+        }
+        return;
+      }
+
+      // ── CLAVICULÁRIO (ver seção) ──
+      // Fica DEPOIS de retirar/devolver/encomendas/prestadores/enquetes/
+      // visitantes de propósito: é um gatilho bem genérico ("chaves"),
+      // então comandos mais específicos (ex.: "retirar chaves") precisam
+      // ter prioridade — senão cairiam aqui em vez de na ação certa.
+      if (c.includes('claviculario') || c.includes('chaves')) {
+        mostrarClaviculario(cmd);
         return;
       }
 
@@ -11511,6 +11652,20 @@ const kvPrest = (() => {
     ov.classList.add('open');
     ov.onclick = e => { if (e.target === ov) fecharModal(); };
     setTimeout(() => document.getElementById('prestNome').focus(), 200);
+
+    // Se aberto via comando de voz: brilho leve no modal pra identificar
+    if (window._vozAbrirPrestador) {
+      window._vozAbrirPrestador = false;
+      setTimeout(() => {
+        const prestModal = document.querySelector('#prestOverlay .prest-modal');
+        if (prestModal) {
+          void prestModal.offsetWidth;
+          prestModal.classList.add('voice-modal-glow-leve');
+          setTimeout(() => prestModal.classList.remove('voice-modal-glow-leve'), 1900);
+        }
+        if (navigator.vibrate) navigator.vibrate(25);
+      }, 150);
+    }
   }
 
   function abrirModalMorador() { abrirModal(null); }
@@ -12044,6 +12199,20 @@ const kvEnquetes = (() => {
     anonimaAtiva = false;
     document.getElementById('enqAnonimaToggle').classList.remove('ativo');
     document.getElementById('enqCriarOverlay').classList.add('open');
+
+    // Se aberto via comando de voz: brilho leve no modal pra identificar
+    if (window._vozAbrirEnquete) {
+      window._vozAbrirEnquete = false;
+      setTimeout(() => {
+        const enqModal = document.querySelector('#enqCriarOverlay .prest-modal');
+        if (enqModal) {
+          void enqModal.offsetWidth;
+          enqModal.classList.add('voice-modal-glow-leve');
+          setTimeout(() => enqModal.classList.remove('voice-modal-glow-leve'), 1900);
+        }
+        if (navigator.vibrate) navigator.vibrate(25);
+      }, 150);
+    }
   }
   function fecharModalCriar() {
     document.getElementById('enqCriarOverlay').classList.remove('open');
@@ -13511,6 +13680,19 @@ const kvVisitantes = (() => {
       resetarFormularioLista();
       const primeiroInput = document.querySelector('#visitNomesContainer .visit-nome-input');
       if (primeiroInput) primeiroInput.focus();
+
+      // Se aberto via comando de voz: brilho leve no formulário
+      if (window._vozAbrirVisitante) {
+        window._vozAbrirVisitante = false;
+        setTimeout(() => {
+          if (formEl) {
+            void formEl.offsetWidth;
+            formEl.classList.add('voice-modal-glow-leve');
+            setTimeout(() => formEl.classList.remove('voice-modal-glow-leve'), 1900);
+          }
+          if (navigator.vibrate) navigator.vibrate(25);
+        }, 150);
+      }
     }
   }
 
