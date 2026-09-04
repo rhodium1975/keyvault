@@ -638,6 +638,62 @@
   .rel-btn:hover { background: rgba(255,171,0,0.22); }
   .add-btn:active, .rel-btn:active { transform: scale(0.97); }
 
+  /* ── OVERLAY DE VAGA (comando de voz) ──
+     Aparece grande, sobrepondo toda a tela, e vai se apagando até sumir. */
+  .voice-vaga-overlay {
+    position: fixed; inset: 0; z-index: 99999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(4,10,14,0.90);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    pointer-events: none;
+    opacity: 0;
+    animation: vagaOverlayFade 3.4s ease forwards;
+  }
+  .voice-vaga-overlay .vaga-label {
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 4px;
+    color: rgba(0,229,255,0.65);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    opacity: 0;
+    animation: vagaFadeInText 0.4s ease 0.1s forwards;
+  }
+  .voice-vaga-overlay .vaga-num {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: min(23vw, 108px);
+    line-height: 1;
+    color: var(--cyan);
+    letter-spacing: 3px;
+    text-shadow: 0 0 50px rgba(0,229,255,0.55);
+    transform: scale(0.55);
+    opacity: 0;
+    animation: vagaScaleIn 0.55s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  .voice-vaga-overlay .vaga-andar {
+    font-family: var(--font-display);
+    font-size: 20px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    margin-top: 12px;
+    opacity: 0;
+    animation: vagaFadeInText 0.4s ease 0.3s forwards;
+  }
+  @keyframes vagaOverlayFade {
+    0%   { opacity: 0; }
+    9%   { opacity: 1; }
+    62%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  @keyframes vagaScaleIn {
+    0%   { transform: scale(0.55); opacity: 0; }
+    65%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+  @keyframes vagaFadeInText { to { opacity: 1; } }
+
   /* ── CHAVE CARDS ── */
   .grid { padding: 0 14px; display: flex; flex-direction: column; gap: 8px; }
 
@@ -4852,6 +4908,11 @@
     <div class="help-cmd">"sair" / "logout" / "encerrar sessão"</div>
     <div class="help-desc">Encerra a sessão e volta para o login</div>
   </div>
+  <div style="font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--cyan);opacity:0.6;margin:10px 0 8px;text-transform:uppercase;">🚗 Vaga de estacionamento</div>
+  <div class="help-item">
+    <div class="help-cmd">"minha vaga" / "vaga de estacionamento" / "onde é minha vaga"</div>
+    <div class="help-desc">Mostra o número da vaga e o andar em destaque na tela (só para moradores)</div>
+  </div>
 </div>
 
 <!-- RELATÓRIO -->
@@ -8689,6 +8750,44 @@
       window._voiceTriggered = true;
     }
 
+    // Mostra a vaga/andar do morador logado em destaque, sobrepondo a tela,
+    // com efeito de aparecer grande e depois ir se apagando até sumir.
+    function mostrarVagaOverlay(vaga, andar) {
+      document.querySelectorAll('.voice-vaga-overlay').forEach(el => el.remove());
+      const overlay = document.createElement('div');
+      overlay.className = 'voice-vaga-overlay';
+      overlay.innerHTML =
+        '<div class="vaga-label">🚗 Sua vaga</div>' +
+        '<div class="vaga-num">' + sanitizeHTML(vaga || '—') + '</div>' +
+        (andar ? '<div class="vaga-andar">' + sanitizeHTML(andar) + '</div>' : '');
+      document.body.appendChild(overlay);
+      if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+      setTimeout(() => overlay.remove(), 3500);
+    }
+
+    async function mostrarMinhaVaga(cmd) {
+      if (!window.KV_AUTH || KV_AUTH.getRole() !== 'morador') {
+        showToast('info', 'Vaga de estacionamento', cmd, 'Esse comando mostra a vaga cadastrada do morador logado.');
+        autoHideToast(3000);
+        return;
+      }
+      try {
+        const doc = await kvMoradores.colMoradores().doc(KV_AUTH.getUsername()).get();
+        const dados = doc.exists ? doc.data() : {};
+        if (!dados.vaga) {
+          showToast('info', 'Sem vaga cadastrada', cmd, 'Não há vaga de estacionamento cadastrada para o seu apartamento.');
+          autoHideToast(3200);
+          return;
+        }
+        showToast('success', 'Vaga de estacionamento', cmd, 'Vaga ' + dados.vaga + (dados.andarVaga ? ' — ' + dados.andarVaga : ''));
+        autoHideToast(2200);
+        mostrarVagaOverlay(dados.vaga, dados.andarVaga);
+      } catch (e) {
+        showToast('error', 'Erro', cmd, 'Não foi possível buscar sua vaga agora.');
+        autoHideToast(3000);
+      }
+    }
+
     function encontrarChave(termo) {
       const t = normalizar(termo);
       // Match exato por ID
@@ -8736,6 +8835,15 @@
         render();
         showToast('success','Busca limpa', cmd, 'Campo de busca limpo.');
         autoHideToast(2500);
+        return;
+      }
+
+      // ── VAGA DE ESTACIONAMENTO ──
+      // Fica ANTES do bloco de FILTRAR de propósito: "mostrar minha vaga"
+      // ou "ver vaga" começam com "mostrar"/"ver" e cairiam no filtro de
+      // chaves antes de chegar aqui, se checados depois.
+      if (c.includes('vaga') || c.includes('estacionamento')) {
+        mostrarMinhaVaga(cmd);
         return;
       }
 
