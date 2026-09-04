@@ -9126,7 +9126,7 @@
 
       // ── PRESTADORES ──
       // Abre o formulário de agendar/solicitar prestador, mesmo sem
-      // nenhum registrado (kvPrest.abrirModal já ajusta título/botões
+      // nenhum registrado (window.kvPrest.abrirModal já ajusta título/botões
       // automaticamente pro perfil de morador internamente).
       if ((c.includes('agendar') && (c.includes('prestador') || c.includes('servico') || c.includes('serviço') || c.includes('visita'))) || c.includes('novo prestador') || c.includes('nova visita') || c.includes('prestador') || c.includes('agendamento') || c.includes('servico') || c.includes('serviço')) {
         if (window.kvPrest && typeof window.kvPrest.abrirModal === 'function') {
@@ -9141,7 +9141,7 @@
       // ── ENQUETES ──
       // Só o síndico cria (abre o formulário, com brilho). Porteiro e
       // morador só acompanham — mostra a lista em vez do formulário
-      // restrito (kvEnquetes.abrirModalCriar já se recusa a abrir pra
+      // restrito (window.kvEnquetes.abrirModalCriar já se recusa a abrir pra
       // quem não é síndico, então aqui a gente confere antes).
       if (c.includes('enquete') || c.includes('votacao') || c.includes('votação')) {
         const isSindico = window.KV_AUTH && KV_AUTH.getRole && KV_AUTH.getRole() === 'sindico';
@@ -11378,7 +11378,7 @@ const kvVeiculoCorSugestoes = (() => {
 // ── MÓDULO PRESTADORES DE SERVIÇO (FIRESTORE) ──
 // Ativos: condominios/{condominioId}/prestadores/{id}
 // Histórico (cancelados removidos da lista): condominios/{condominioId}/prestadoresHistorico/{id}
-const kvPrest = (() => {
+const kvPrest = window.kvPrest = (() => {
   const STORAGE_KEY = 'kv_prestadores_v1';
   const HISTORICO_KEY = 'kv_prestadores_historico_v1';
   let agendamentos = [];
@@ -11961,7 +11961,7 @@ const kvPrest = (() => {
 // pessoa (o ID do documento É o uid dela), o que garante nativamente
 // "1 voto por pessoa": tentar votar de novo é um create em cima de um
 // documento que já existe, e o Firestore recusa isso sozinho.
-const kvEnquetes = (() => {
+const kvEnquetes = window.kvEnquetes = (() => {
   let enquetes = [];
   let listAberta = false;
   let historicoAberto = false;
@@ -13498,7 +13498,7 @@ function entrarComoPorteiro({ nome, porteiroId, condominioId }) {
 // ── MÓDULO VISITANTES (FIRESTORE) ──
 // Cada morador cadastra suas próprias visitas. Só o próprio morador e a
 // equipe (admin/porteiro) conseguem ver — controlado pelas regras do Firestore.
-const kvVisitantes = (() => {
+const kvVisitantes = window.kvVisitantes = (() => {
   function condominioIdAtivo() {
     const id = window.KV_AUTH && KV_AUTH.getCondominioId && KV_AUTH.getCondominioId();
     if (!id) throw new Error('Nenhum condomínio ativo na sessão. Faça login novamente.');
