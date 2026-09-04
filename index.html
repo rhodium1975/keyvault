@@ -8906,9 +8906,9 @@
     // Enquetes: síndico cria (abre o modal com brilho); demais perfis só
     // acompanham — expande a lista com o mesmo brilho leve.
     function verEnquetes(cmd) {
-      if (window.kvEnquetes && typeof window.kvEnquetes.toggleList === 'function') {
+      if (kvEnquetes && typeof kvEnquetes.toggleList === 'function') {
         const wrap = document.getElementById('enqListWrap');
-        if (wrap && wrap.style.display === 'none') window.kvEnquetes.toggleList();
+        if (wrap && wrap.style.display === 'none') kvEnquetes.toggleList();
       }
       const enqSector = document.getElementById('enqSector');
       if (enqSector) {
@@ -8926,9 +8926,9 @@
     // Visitantes: só o morador pode cadastrar (abre o form dele, com
     // brilho); equipe (síndico/porteiro) só acompanha a lista.
     function verVisitantes(cmd) {
-      if (window.kvVisitantes && typeof window.kvVisitantes.toggleLista === 'function') {
+      if (kvVisitantes && typeof kvVisitantes.toggleLista === 'function') {
         const wrap = document.getElementById('visitListWrap');
-        if (wrap && wrap.style.display === 'none') window.kvVisitantes.toggleLista();
+        if (wrap && wrap.style.display === 'none') kvVisitantes.toggleLista();
       }
       const visitSector = document.getElementById('visitSector');
       if (visitSector) {
@@ -9129,9 +9129,9 @@
       // nenhum registrado (kvPrest.abrirModal já ajusta título/botões
       // automaticamente pro perfil de morador internamente).
       if ((c.includes('agendar') && (c.includes('prestador') || c.includes('servico') || c.includes('serviço') || c.includes('visita'))) || c.includes('novo prestador') || c.includes('nova visita') || c.includes('prestador') || c.includes('agendamento') || c.includes('servico') || c.includes('serviço')) {
-        if (window.kvPrest && typeof window.kvPrest.abrirModal === 'function') {
+        if (kvPrest && typeof kvPrest.abrirModal === 'function') {
           window._vozAbrirPrestador = true;
-          window.kvPrest.abrirModal();
+          kvPrest.abrirModal();
           showToast('success','Prestadores', cmd, 'Formulário de agendamento aberto.');
         } else { showToast('error','Erro', cmd, 'Função não disponível.'); }
         autoHideToast(2000);
@@ -9145,9 +9145,9 @@
       // quem não é síndico, então aqui a gente confere antes).
       if (c.includes('enquete') || c.includes('votacao') || c.includes('votação')) {
         const isSindico = window.KV_AUTH && KV_AUTH.getRole && KV_AUTH.getRole() === 'sindico';
-        if (isSindico && window.kvEnquetes && typeof window.kvEnquetes.abrirModalCriar === 'function') {
+        if (isSindico && kvEnquetes && typeof kvEnquetes.abrirModalCriar === 'function') {
           window._vozAbrirEnquete = true;
-          window.kvEnquetes.abrirModalCriar();
+          kvEnquetes.abrirModalCriar();
           showToast('success','Nova enquete', cmd, 'Formulário de enquete aberto.');
           autoHideToast(2000);
         } else {
@@ -9161,12 +9161,12 @@
       // Equipe (síndico/porteiro) só acompanha — mostra a lista.
       if (c.includes('visitante')) {
         const role = window.KV_AUTH && KV_AUTH.getRole ? KV_AUTH.getRole() : null;
-        if (role === 'morador' && window.kvVisitantes && typeof window.kvVisitantes.toggleForm === 'function') {
-          if (window.kvVisitantes.toggleLista && document.getElementById('visitListWrap') && document.getElementById('visitListWrap').style.display === 'none') {
-            window.kvVisitantes.toggleLista();
+        if (role === 'morador' && kvVisitantes && typeof kvVisitantes.toggleForm === 'function') {
+          if (kvVisitantes.toggleLista && document.getElementById('visitListWrap') && document.getElementById('visitListWrap').style.display === 'none') {
+            kvVisitantes.toggleLista();
           }
           window._vozAbrirVisitante = true;
-          if (!window._visitFormExpandido) window.kvVisitantes.toggleForm();
+          if (!window._visitFormExpandido) kvVisitantes.toggleForm();
           showToast('success','Visitantes', cmd, 'Formulário de visitante aberto.');
           autoHideToast(2000);
         } else {
