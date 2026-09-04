@@ -2717,6 +2717,19 @@
     transition: color 0.2s, text-shadow 0.2s;
   }
 
+  /* ══════════════════════════════════════════════
+     VOICE GLOW LEVE — modal de encomenda aberto por voz
+     (mais discreto que o voice-modal-active das chaves)
+     ══════════════════════════════════════════════ */
+  @keyframes voice-modal-glow-leve {
+    0%   { box-shadow: 0 0 0 0 rgba(0,229,255,0); border-color: var(--border); }
+    15%  { box-shadow: 0 0 26px 5px rgba(0,229,255,0.35), 0 0 0 1px rgba(0,229,255,0.45); border-color: rgba(0,229,255,0.6); }
+    100% { box-shadow: 0 0 0 0 rgba(0,229,255,0); border-color: var(--border); }
+  }
+  .voice-modal-glow-leve {
+    animation: voice-modal-glow-leve 1.8s ease-out 1 !important;
+  }
+
   /* ── SETOR DE ENCOMENDAS ── */
   .enc-sector {
     margin: 14px 10px 6px;
@@ -4530,7 +4543,7 @@
     </div>
     <div class="del-footer">
       <button class="del-cancel" onclick="fecharLimparLog()">Cancelar</button>
-      <button class="del-confirm" onclick="confirmarLimparLog()">🗑 Limpar tudo</button>
+      <button class="del-confirm" id="btnConfirmarLimparLog" onclick="confirmarLimparLog()">🗑 Limpar tudo</button>
     </div>
   </div>
 </div>
@@ -4867,12 +4880,8 @@
   </div>
   <div style="font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--purple);opacity:0.6;margin:10px 0 8px;text-transform:uppercase;">📦 Encomendas</div>
   <div class="help-item">
-    <div class="help-cmd">"nova encomenda" / "registrar pacote"</div>
+    <div class="help-cmd">"encomendas" / "nova encomenda" / "registrar pacote"</div>
     <div class="help-desc">Abre o formulário de nova encomenda</div>
-  </div>
-  <div class="help-item">
-    <div class="help-cmd">"encomendas" / "ver pacotes"</div>
-    <div class="help-desc">Rola para a seção de encomendas</div>
   </div>
   <div style="font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--amber);opacity:0.6;margin:10px 0 8px;text-transform:uppercase;">🔧 Prestadores</div>
   <div class="help-item">
@@ -7221,6 +7230,26 @@
 
   document.getElementById('exportLogOverlay').addEventListener('click', function(e) { if (e.target === this) fecharExportarLog(); });
 
+  // Apaga TODOS os documentos da coleção chavesLog no Firestore (em lotes de
+  // até 450 por batch, respeitando o limite de 500 do Firestore). O listener
+  // em tempo real (_iniciarListenerChavesLog) só busca os 300 mais recentes,
+  // mas pode haver mais registros salvos — por isso buscamos tudo aqui, sem
+  // o .limit(300), para garantir que nada volte depois de "limpar".
+  async function _limparChavesLogFirestore() {
+    const colRef = _colChavesLog();
+    let apagados = 0;
+    while (true) {
+      const snap = await colRef.limit(450).get();
+      if (snap.empty) break;
+      const batch = firebase.firestore().batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      apagados += snap.docs.length;
+      if (snap.docs.length < 450) break;
+    }
+    return apagados;
+  }
+
   // ── LIMPAR HISTÓRICO ──
   function abrirLimparLog() {
     if (!KV_AUTH.isAdmin()) { showToastSimples('⛔ Acesso restrito a administradores.'); return; }
@@ -7230,13 +7259,26 @@
     document.getElementById('clearLogOverlay').classList.add('open');
   }
   function fecharLimparLog() { document.getElementById('clearLogOverlay').classList.remove('open'); }
-  function confirmarLimparLog() {
+  async function confirmarLimparLog() {
     if (!KV_AUTH.isAdmin()) { fecharLimparLog(); showToastSimples('⛔ Acesso restrito a administradores.'); return; }
-    log = [];
-    salvarEstado();
-    fecharLimparLog();
-    renderLog();
-    if (navigator.vibrate) navigator.vibrate([20, 10, 20]);
+    const btn = document.getElementById('btnConfirmarLimparLog');
+    if (btn) { btn.disabled = true; btn.textContent = 'Limpando...'; }
+    try {
+      // Apaga de verdade no Firestore — antes só limpava a cópia local,
+      // então o histórico "ressuscitava" ao recarregar a página, porque o
+      // listener em tempo real buscava tudo de novo do banco.
+      await _limparChavesLogFirestore();
+      log = [];
+      salvarEstado();
+      fecharLimparLog();
+      renderLog();
+      if (navigator.vibrate) navigator.vibrate([20, 10, 20]);
+      showToastSimples('✓ Histórico apagado permanentemente.');
+    } catch (e) {
+      showToastSimples('⚠ Erro ao limpar histórico: ' + e.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🗑 Limpar tudo'; }
+    }
   }
   document.getElementById('clearLogOverlay').addEventListener('click', function(e) { if (e.target === this) fecharLimparLog(); });
 
@@ -8788,6 +8830,29 @@
       }
     }
 
+    // Expande a seção de encomendas e rola até ela. Usado tanto para o
+    // morador (que só pode VER as próprias, filtradas por apto — nunca
+    // registrar) quanto como fallback caso abrirNovaEncomenda não exista.
+    function verMinhasEncomendas(cmd) {
+      const wrap  = document.getElementById('encListWrap');
+      const arrow = document.getElementById('encToggleArrow');
+      if (wrap && !wrap.classList.contains('expanded')) {
+        wrap.classList.add('expanded');
+        if (arrow) arrow.classList.add('open');
+      }
+      const encSector = document.getElementById('encSector');
+      if (encSector) {
+        encSector.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => {
+          void encSector.offsetWidth;
+          encSector.classList.add('voice-modal-glow-leve');
+          setTimeout(() => encSector.classList.remove('voice-modal-glow-leve'), 1900);
+        }, 300);
+      }
+      showToast('success', 'Suas encomendas', cmd, 'Mostrando a seção de encomendas.');
+      autoHideToast(2500);
+    }
+
     function encontrarChave(termo) {
       const t = normalizar(termo);
       // Match exato por ID
@@ -8925,8 +8990,14 @@
       }
 
       // ── NOVA ENCOMENDA ──
+      // Morador não pode registrar (o botão já fica escondido pra ele na
+      // tela) — em vez de abrir o formulário restrito, mostra a lista das
+      // próprias encomendas.
       if ((c.includes('nova') && c.includes('encomend')) || c.includes('registrar encomend') || c.includes('adicionar encomend') || c.includes('registrar pacote') || c.includes('nova entrega')) {
+        const role = window.KV_AUTH && KV_AUTH.getRole ? KV_AUTH.getRole() : null;
+        if (role === 'morador') { verMinhasEncomendas(cmd); return; }
         if (typeof abrirNovaEncomenda === 'function') {
+          window._vozAbrirEncomenda = true;
           abrirNovaEncomenda();
           showToast('success','Nova encomenda', cmd, 'Formulário de encomenda aberto.');
         } else { showToast('error','Erro', cmd, 'Função não disponível.'); }
@@ -8934,16 +9005,19 @@
         return;
       }
 
-      // ── ENCOMENDAS (abrir/ver seção) ──
+      // ── ENCOMENDAS ──
+      // Admin/porteiro: abre o formulário de nova encomenda, mesmo sem nada
+      // registrado. Morador: abre a lista das próprias encomendas (ele não
+      // pode registrar, só ver e reportar).
       if (c.includes('encomend') || c.includes('pacote') || c.includes('entrega')) {
-        if (typeof toggleEncList === 'function') {
-          const wrap = document.getElementById('encListWrap');
-          if (wrap && !wrap.classList.contains('expanded')) toggleEncList({});
-        }
-        const encSector = document.getElementById('encSector');
-        if (encSector) encSector.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        showToast('success','Encomendas', cmd, 'Seção de encomendas destacada.');
-        autoHideToast(2500);
+        const role = window.KV_AUTH && KV_AUTH.getRole ? KV_AUTH.getRole() : null;
+        if (role === 'morador') { verMinhasEncomendas(cmd); return; }
+        if (typeof abrirNovaEncomenda === 'function') {
+          window._vozAbrirEncomenda = true;
+          abrirNovaEncomenda();
+          showToast('success','Encomendas', cmd, 'Formulário de encomenda aberto.');
+        } else { showToast('error','Erro', cmd, 'Função não disponível.'); }
+        autoHideToast(2000);
         return;
       }
 
@@ -10425,6 +10499,20 @@
 
       document.getElementById('encOverlay').classList.add('open');
       iniciarCamera();
+
+      // Se aberto via comando de voz: brilho leve no modal pra identificar
+      if (window._vozAbrirEncomenda) {
+        window._vozAbrirEncomenda = false;
+        setTimeout(() => {
+          const encModal = document.querySelector('#encOverlay .enc-modal');
+          if (encModal) {
+            void encModal.offsetWidth;
+            encModal.classList.add('voice-modal-glow-leve');
+            setTimeout(() => encModal.classList.remove('voice-modal-glow-leve'), 1900);
+          }
+          if (navigator.vibrate) navigator.vibrate(25);
+        }, 150);
+      }
     };
 
     window.toggleEncFaltante = function() {
