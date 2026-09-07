@@ -5070,7 +5070,7 @@
       <div style="font-family:var(--font-display);font-size:11px;letter-spacing:1px;color:var(--text);margin-bottom:12px;">🔑 RECUPERAR ACESSO</div>
       <input type="email" id="esqueciSenhaEmail" placeholder="Digite seu e-mail cadastrado" class="login-input" style="margin-bottom:8px;width:100%;" autocomplete="username">
       <div id="esqueciSenhaErro" style="display:none;color:#ff5577;font-size:12px;margin-bottom:8px;"></div>
-      <div id="esqueciSenhaSucesso" style="display:none;color:var(--cyan);font-size:12px;margin-bottom:8px;">✅ E-mail de recuperação enviado! Verifique sua caixa de entrada.</div>
+      <div id="esqueciSenhaSucesso" style="display:none;color:var(--cyan);font-size:12px;margin-bottom:8px;line-height:1.5;">✅ Se esse e-mail estiver cadastrado, você vai receber um link em instantes. Não chegou nada em alguns minutos? Confira a caixa de spam ou fale com o síndico/portaria para corrigir seu cadastro.</div>
       <button type="button" id="esqueciSenhaPanelBtn" onclick="executarRecuperacaoSenha()" class="login-btn" style="width:100%;">ENVIAR E-MAIL DE RECUPERAÇÃO</button>
       <div style="margin-top:10px;text-align:center;">
         <a href="#" onclick="toggleEsqueciSenha();return false;" style="color:var(--text-dim);font-family:var(--font-display);font-size:10px;letter-spacing:1px;text-decoration:none;">CANCELAR</a>
@@ -14556,7 +14556,21 @@ async function executarRecuperacaoSenha() {
     if (!email) throw new Error('Digite seu e-mail.');
     btn.disabled = true;
     btn.textContent = 'ENVIANDO...';
-    await KV_TENANT.enviarRecuperacaoSenha(email);
+    try {
+      await KV_TENANT.enviarRecuperacaoSenha(email);
+    } catch (e) {
+      // CORRIGIDO (auditoria — enumeração de e-mail): antes, um e-mail
+      // não cadastrado mostrava "Não existe cadastro com esse e-mail",
+      // o que deixava qualquer um descobrir quem tem conta no sistema
+      // testando endereços um a um, sem precisar de senha nenhuma.
+      // Agora essa resposta específica (auth/user-not-found) é tratada
+      // como sucesso "camuflado" — mesma mensagem, mesmo visual, tanto
+      // pra quem existe quanto pra quem não existe. O e-mail continua
+      // só sendo enviado de verdade se a conta existir; o que muda é
+      // só a mensagem na tela. Outros erros de verdade (formato
+      // inválido, sem internet etc.) continuam aparecendo normalmente.
+      if (e && e.code !== 'auth/user-not-found') throw e;
+    }
     sucessoEl.style.display = 'block';
   } catch (e) {
     erroEl.textContent = traduzirErroFirebase(e);
