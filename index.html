@@ -3309,7 +3309,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
         <div style="display:flex;align-items:center;gap:6px;">
           <svg class="enc-toggle-arrow" id="encToggleArrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          <span class="enc-count-badge" id="encCountBadge" style="background: rgba(213, 0, 249, 0.22); border-color: rgba(213, 0, 249, 0.5);">2</span>
+          <span class="enc-count-badge" id="encCountBadge" style="background: rgba(158, 170, 181, 0.22); border-color: rgba(158, 170, 181, 0.5);">2</span>
           <span class="enc-title" style="display:none;">📦 Encomendas</span>
         </div>
         <!-- Botão Paleta de Cores -->
@@ -3393,7 +3393,7 @@
     <div class="prest-header" onclick="kvPrest.toggleList(event)" style="cursor:pointer;user-select:none;">
       <div style="display:flex;align-items:center;gap:6px;">
         <svg class="prest-toggle-arrow" id="prestToggleArrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        <span class="prest-count-badge" id="prestCountBadge" style="background: rgba(0, 229, 255, 0.06);">0</span>
+        <span class="prest-count-badge" id="prestCountBadge" style="background: rgba(158, 170, 181, 0.06);">0</span>
         <span class="prest-title" style="display:none;">🔧 Prestadores</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation()">
@@ -3421,10 +3421,10 @@
     <div class="enc-color-panel" id="prestColorPanel" onclick="event.stopPropagation()">
       <div class="enc-color-panel-title">🎨 Personalizar cor da seção</div>
       <div class="enc-color-swatches" id="prestColorSwatches">
-        <div class="enc-color-swatch" data-color="grey"   style="background:#9eaab5;" onclick="aplicarCorPrestadores('grey','#9eaab5','rgba(158,170,181,0.22)','rgba(158,170,181,0.5)')" title="Cinza"></div>
+        <div class="enc-color-swatch active" data-color="grey"   style="background:#9eaab5;" onclick="aplicarCorPrestadores('grey','#9eaab5','rgba(158,170,181,0.22)','rgba(158,170,181,0.5)')" title="Cinza (padrão)"></div>
         <div class="enc-color-swatch" data-color="cyan"   style="background:#00e5ff;" onclick="aplicarCorPrestadores('cyan','#00e5ff','rgba(0,229,255,0.22)','rgba(0,229,255,0.5)')" title="Ciano"></div>
         <div class="enc-color-swatch" data-color="green"  style="background:#00e676;" onclick="aplicarCorPrestadores('green','#00e676','rgba(0,230,118,0.22)','rgba(0,230,118,0.5)')" title="Verde"></div>
-        <div class="enc-color-swatch active" data-color="amber"  style="background:#ffab00;" onclick="aplicarCorPrestadores('amber','#ffab00','rgba(255,171,0,0.22)','rgba(255,171,0,0.5)')" title="Âmbar (padrão)"></div>
+        <div class="enc-color-swatch" data-color="amber"  style="background:#ffab00;" onclick="aplicarCorPrestadores('amber','#ffab00','rgba(255,171,0,0.22)','rgba(255,171,0,0.5)')" title="Âmbar"></div>
         <div class="enc-color-swatch" data-color="purple" style="background:#d500f9;" onclick="aplicarCorPrestadores('purple','#d500f9','rgba(213,0,249,0.22)','rgba(213,0,249,0.5)')" title="Roxo"></div>
         <div class="enc-color-swatch" data-color="red"    style="background:#ff1744;" onclick="aplicarCorPrestadores('red','#ff1744','rgba(255,23,68,0.22)','rgba(255,23,68,0.5)')" title="Vermelho"></div>
         <div class="enc-color-swatch" data-color="pink"   style="background:#f06292;" onclick="aplicarCorPrestadores('pink','#f06292','rgba(240,98,146,0.22)','rgba(240,98,146,0.5)')" title="Rosa"></div>
@@ -3524,7 +3524,7 @@
     <div class="prest-header" onclick="kvEnquetes.toggleList(event)" style="cursor:pointer;user-select:none;">
       <div style="display:flex;align-items:center;gap:6px;">
         <svg class="prest-toggle-arrow" id="enqToggleArrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        <span class="prest-count-badge" id="enqCountBadge" style="background: rgba(0, 229, 255, 0.06);">0</span>
+        <span class="prest-count-badge" id="enqCountBadge" style="background: rgba(158, 170, 181, 0.06);">0</span>
         <span class="prest-title" id="enqTitleLabel" style="display:none;">📊 Enquetes</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation()">
@@ -3549,8 +3549,8 @@
     <div class="enc-color-panel" id="enqColorPanel" onclick="event.stopPropagation()">
       <div class="enc-color-panel-title">🎨 Personalizar cor da seção</div>
       <div class="enc-color-swatches" id="enqColorSwatches">
-        <div class="enc-color-swatch" data-color="grey"   style="background:#9eaab5;" onclick="aplicarCorEnquetes('grey','#9eaab5','rgba(158,170,181,0.22)','rgba(158,170,181,0.5)')" title="Cinza"></div>
-        <div class="enc-color-swatch active" data-color="cyan"   style="background:#00e5ff;" onclick="aplicarCorEnquetes('cyan','#00e5ff','rgba(0,229,255,0.22)','rgba(0,229,255,0.5)')" title="Ciano (padrão)"></div>
+        <div class="enc-color-swatch active" data-color="grey"   style="background:#9eaab5;" onclick="aplicarCorEnquetes('grey','#9eaab5','rgba(158,170,181,0.22)','rgba(158,170,181,0.5)')" title="Cinza (padrão)"></div>
+        <div class="enc-color-swatch" data-color="cyan"   style="background:#00e5ff;" onclick="aplicarCorEnquetes('cyan','#00e5ff','rgba(0,229,255,0.22)','rgba(0,229,255,0.5)')" title="Ciano"></div>
         <div class="enc-color-swatch" data-color="green"  style="background:#00e676;" onclick="aplicarCorEnquetes('green','#00e676','rgba(0,230,118,0.22)','rgba(0,230,118,0.5)')" title="Verde"></div>
         <div class="enc-color-swatch" data-color="amber"  style="background:#ffab00;" onclick="aplicarCorEnquetes('amber','#ffab00','rgba(255,171,0,0.22)','rgba(255,171,0,0.5)')" title="Âmbar"></div>
         <div class="enc-color-swatch" data-color="purple" style="background:#d500f9;" onclick="aplicarCorEnquetes('purple','#d500f9','rgba(213,0,249,0.22)','rgba(213,0,249,0.5)')" title="Roxo"></div>
@@ -3644,7 +3644,7 @@
     <div class="prest-header" onclick="kvVisitantes.toggleLista(event)" style="cursor:pointer;user-select:none;">
       <div style="display:flex;align-items:center;gap:6px;">
         <svg class="prest-toggle-arrow" id="visitToggleArrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        <span class="prest-count-badge" id="visitCountBadge" style="background: rgba(0, 229, 255, 0.06);">0</span>
+        <span class="prest-count-badge" id="visitCountBadge" style="background: rgba(158, 170, 181, 0.06);">0</span>
         <span class="prest-title" id="visitTitleLabel" style="display:none;">👥 Visitantes</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation()">
@@ -3668,8 +3668,8 @@
     <div class="enc-color-panel" id="visitColorPanel" onclick="event.stopPropagation()">
       <div class="enc-color-panel-title">🎨 Personalizar cor da seção</div>
       <div class="enc-color-swatches" id="visitColorSwatches">
-        <div class="enc-color-swatch active" data-color="cyan"   style="background:#00e5ff;" onclick="aplicarCorVisitantes('cyan','#00e5ff','rgba(0,229,255,0.22)','rgba(0,229,255,0.5)')" title="Ciano (padrão)"></div>
-        <div class="enc-color-swatch" data-color="grey"   style="background:#9eaab5;" onclick="aplicarCorVisitantes('grey','#9eaab5','rgba(158,170,181,0.22)','rgba(158,170,181,0.5)')" title="Cinza"></div>
+        <div class="enc-color-swatch" data-color="cyan"   style="background:#00e5ff;" onclick="aplicarCorVisitantes('cyan','#00e5ff','rgba(0,229,255,0.22)','rgba(0,229,255,0.5)')" title="Ciano"></div>
+        <div class="enc-color-swatch active" data-color="grey"   style="background:#9eaab5;" onclick="aplicarCorVisitantes('grey','#9eaab5','rgba(158,170,181,0.22)','rgba(158,170,181,0.5)')" title="Cinza (padrão)"></div>
         <div class="enc-color-swatch" data-color="green"  style="background:#00e676;" onclick="aplicarCorVisitantes('green','#00e676','rgba(0,230,118,0.22)','rgba(0,230,118,0.5)')" title="Verde"></div>
         <div class="enc-color-swatch" data-color="amber"  style="background:#ffab00;" onclick="aplicarCorVisitantes('amber','#ffab00','rgba(255,171,0,0.22)','rgba(255,171,0,0.5)')" title="Âmbar"></div>
         <div class="enc-color-swatch" data-color="purple" style="background:#d500f9;" onclick="aplicarCorVisitantes('purple','#d500f9','rgba(213,0,249,0.22)','rgba(213,0,249,0.5)')" title="Roxo"></div>
@@ -3777,8 +3777,8 @@
   <div class="enc-color-panel" id="chavesColorPanel" style="margin:0 14px 10px;">
     <div class="enc-color-panel-title">🎨 Personalizar cor da seção</div>
     <div class="enc-color-swatches" id="chavesColorSwatches">
-      <div class="enc-color-swatch active" data-color="cyan"   style="background:#00e5ff;" onclick="aplicarCorChaves('cyan','#00e5ff','rgba(0,229,255,0.22)','rgba(0,229,255,0.5)')"   title="Ciano (padrão)"></div>
-      <div class="enc-color-swatch" data-color="grey"   style="background:#9eaab5;" onclick="aplicarCorChaves('grey','#9eaab5','rgba(158,170,181,0.22)','rgba(158,170,181,0.5)')" title="Cinza"></div>
+      <div class="enc-color-swatch" data-color="cyan"   style="background:#00e5ff;" onclick="aplicarCorChaves('cyan','#00e5ff','rgba(0,229,255,0.22)','rgba(0,229,255,0.5)')"   title="Ciano"></div>
+      <div class="enc-color-swatch active" data-color="grey"   style="background:#9eaab5;" onclick="aplicarCorChaves('grey','#9eaab5','rgba(158,170,181,0.22)','rgba(158,170,181,0.5)')" title="Cinza (padrão)"></div>
       <div class="enc-color-swatch" data-color="green"  style="background:#00e676;" onclick="aplicarCorChaves('green','#00e676','rgba(0,230,118,0.22)','rgba(0,230,118,0.5)')"   title="Verde"></div>
       <div class="enc-color-swatch" data-color="amber"  style="background:#ffab00;" onclick="aplicarCorChaves('amber','#ffab00','rgba(255,171,0,0.22)','rgba(255,171,0,0.5)')"   title="Âmbar"></div>
       <div class="enc-color-swatch" data-color="purple" style="background:#d500f9;" onclick="aplicarCorChaves('purple','#d500f9','rgba(213,0,249,0.22)','rgba(213,0,249,0.5)')" title="Roxo"></div>
@@ -10321,21 +10321,21 @@
       if (title) title.style.color = hex;
     }
 
-    // Carregar cor salva do claviculário ao iniciar
+    // Carregar cor salva do claviculário ao iniciar (ou cinza, por padrão)
     (function() {
+      const GREY = {colorKey:'grey', hex:'#9eaab5', bgHover:'rgba(158,170,181,0.22)', borderColor:'rgba(158,170,181,0.5)'};
+      let cfg = GREY;
       try {
         const saved = localStorage.getItem('kv_chaves_color');
-        if (saved) {
-          const cfg = JSON.parse(saved);
-          window._chavesColorConfig = cfg;
-          setTimeout(() => {
-            document.querySelectorAll('#chavesColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
-            const swatch = document.querySelector(`#chavesColorSwatches .enc-color-swatch[data-color="${cfg.colorKey}"]`);
-            if (swatch) swatch.classList.add('active');
-            _aplicarCorChavesTudo(cfg);
-          }, 350);
-        }
+        if (saved) cfg = JSON.parse(saved);
       } catch(e) {}
+      window._chavesColorConfig = cfg;
+      setTimeout(() => {
+        document.querySelectorAll('#chavesColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
+        const swatch = document.querySelector(`#chavesColorSwatches .enc-color-swatch[data-color="${cfg.colorKey}"]`);
+        if (swatch) swatch.classList.add('active');
+        _aplicarCorChavesTudo(cfg);
+      }, 350);
     })();
     window.togglePrestColorPanel = function() {
       const panel = document.getElementById('prestColorPanel');
@@ -10391,21 +10391,21 @@
       if (title) title.style.color = hex;
     }
 
-    // Carregar cor salva de prestadores ao iniciar
+    // Carregar cor salva de prestadores ao iniciar (ou cinza, por padrão)
     (function() {
+      const GREY = {colorKey:'grey', hex:'#9eaab5', bgHover:'rgba(158,170,181,0.22)', borderColor:'rgba(158,170,181,0.5)'};
+      let cfg = GREY;
       try {
         const saved = localStorage.getItem('kv_prest_color');
-        if (saved) {
-          const cfg = JSON.parse(saved);
-          window._prestColorConfig = cfg;
-          setTimeout(() => {
-            document.querySelectorAll('#prestColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
-            const swatch = document.querySelector(`#prestColorSwatches .enc-color-swatch[data-color="${cfg.colorKey}"]`);
-            if (swatch) swatch.classList.add('active');
-            _aplicarCorPrestTudo(cfg);
-          }, 350);
-        }
+        if (saved) cfg = JSON.parse(saved);
       } catch(e) {}
+      window._prestColorConfig = cfg;
+      setTimeout(() => {
+        document.querySelectorAll('#prestColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
+        const swatch = document.querySelector(`#prestColorSwatches .enc-color-swatch[data-color="${cfg.colorKey}"]`);
+        if (swatch) swatch.classList.add('active');
+        _aplicarCorPrestTudo(cfg);
+      }, 350);
     })();
 
     window.toggleEnqColorPanel = function() {
@@ -10509,55 +10509,55 @@
       if (title) title.style.color = hex;
     }
 
-    // Carregar cor salva de visitantes ao iniciar
+    // Carregar cor salva de visitantes ao iniciar (ou cinza, por padrão)
     (function() {
+      const GREY = {colorKey:'grey', hex:'#9eaab5', bgHover:'rgba(158,170,181,0.22)', borderColor:'rgba(158,170,181,0.5)'};
+      let cfg = GREY;
       try {
         const saved = localStorage.getItem('kv_visit_color');
-        if (saved) {
-          const cfg = JSON.parse(saved);
-          window._visitColorConfig = cfg;
-          setTimeout(() => {
-            document.querySelectorAll('#visitColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
-            const swatch = document.querySelector(`#visitColorSwatches .enc-color-swatch[data-color="${cfg.colorKey}"]`);
-            if (swatch) swatch.classList.add('active');
-            _aplicarCorVisitTudo(cfg);
-          }, 350);
-        }
+        if (saved) cfg = JSON.parse(saved);
       } catch(e) {}
+      window._visitColorConfig = cfg;
+      setTimeout(() => {
+        document.querySelectorAll('#visitColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
+        const swatch = document.querySelector(`#visitColorSwatches .enc-color-swatch[data-color="${cfg.colorKey}"]`);
+        if (swatch) swatch.classList.add('active');
+        _aplicarCorVisitTudo(cfg);
+      }, 350);
     })();
 
-    // Carregar cor salva de enquetes ao iniciar
+    // Carregar cor salva de enquetes ao iniciar (ou cinza, por padrão)
     (function() {
+      const GREY = {colorKey:'grey', hex:'#9eaab5', bgHover:'rgba(158,170,181,0.22)', borderColor:'rgba(158,170,181,0.5)'};
+      let cfg = GREY;
       try {
         const saved = localStorage.getItem('kv_enq_color');
-        if (saved) {
-          const cfg = JSON.parse(saved);
-          window._enqColorConfig = cfg;
-          setTimeout(() => {
-            document.querySelectorAll('#enqColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
-            const swatch = document.querySelector(`#enqColorSwatches .enc-color-swatch[data-color="${cfg.colorKey}"]`);
-            if (swatch) swatch.classList.add('active');
-            _aplicarCorEnqTudo(cfg);
-          }, 350);
-        }
+        if (saved) cfg = JSON.parse(saved);
       } catch(e) {}
+      window._enqColorConfig = cfg;
+      setTimeout(() => {
+        document.querySelectorAll('#enqColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
+        const swatch = document.querySelector(`#enqColorSwatches .enc-color-swatch[data-color="${cfg.colorKey}"]`);
+        if (swatch) swatch.classList.add('active');
+        _aplicarCorEnqTudo(cfg);
+      }, 350);
     })();
 
-    // Carregar cor salva de encomendas ao iniciar
+    // Carregar cor salva de encomendas ao iniciar (ou cinza, por padrão)
     (function() {
+      const GREY = {colorKey:'grey', hex:'#9eaab5', bgHover:'rgba(158,170,181,0.22)', borderColor:'rgba(158,170,181,0.5)'};
+      let cfg = GREY;
       try {
         const saved = localStorage.getItem('kv_enc_color');
-        if (saved) {
-          const cfg = JSON.parse(saved);
-          window._encColorConfig = cfg;
-          setTimeout(() => {
-            document.querySelectorAll('#encColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
-            const swatch = document.querySelector(`#encColorSwatches .enc-color-swatch[data-color="${cfg.colorKey}"]`);
-            if (swatch) swatch.classList.add('active');
-            _aplicarCorEncTudo(cfg);
-          }, 350);
-        }
+        if (saved) cfg = JSON.parse(saved);
       } catch(e) {}
+      window._encColorConfig = cfg;
+      setTimeout(() => {
+        document.querySelectorAll('#encColorSwatches .enc-color-swatch').forEach(s => s.classList.remove('active'));
+        const swatch = document.querySelector(`#encColorSwatches .enc-color-swatch[data-color="${cfg.colorKey}"]`);
+        if (swatch) swatch.classList.add('active');
+        _aplicarCorEncTudo(cfg);
+      }, 350);
     })();
 
     function expandEncList() {
