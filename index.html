@@ -3438,17 +3438,20 @@
         <button class="prest-filter-btn active" data-f="todos" onclick="kvPrest.setFiltro('todos',this)">Todos</button>
       </div>
       <div id="prestList"></div>
-    </div>
-    <!-- HISTÓRICO DE SERVIÇOS CANCELADOS/EXCLUÍDOS (visível apenas para síndico/admin) -->
-    <div class="prest-historico-toggle" id="prestHistoricoToggle" onclick="kvPrest.toggleHistorico(event)" style="display:none;align-items:center;justify-content:space-between;padding:9px 14px;margin-top:2px;cursor:pointer;user-select:none;">
-      <div style="display:flex;align-items:center;gap:6px;">
-        <svg class="prest-toggle-arrow" id="prestHistoricoArrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        <span style="font-family:var(--font-display);font-size:9.5px;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;">🗄 Histórico de cancelados</span>
-        <span class="prest-count-badge" id="prestHistoricoBadge" style="background:rgba(158,170,181,0.1);">0</span>
+      <!-- HISTÓRICO DE SERVIÇOS CANCELADOS/EXCLUÍDOS (visível apenas para síndico/admin) —
+           fica DENTRO do prestListWrap de propósito: assim ele recolhe/
+           expande junto com a seção de Prestadores, em vez de continuar
+           visível quando a seção está minimizada. -->
+      <div class="prest-historico-toggle" id="prestHistoricoToggle" onclick="kvPrest.toggleHistorico(event)" style="display:none;align-items:center;justify-content:space-between;padding:9px 14px;margin-top:2px;cursor:pointer;user-select:none;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <svg class="prest-toggle-arrow" id="prestHistoricoArrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <span style="font-family:var(--font-display);font-size:9.5px;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;">🗄 Histórico de cancelados</span>
+          <span class="prest-count-badge" id="prestHistoricoBadge" style="background:rgba(158,170,181,0.1);">0</span>
+        </div>
       </div>
-    </div>
-    <div class="prest-list-wrap" id="prestHistoricoWrap" style="display:none;">
-      <div id="prestHistoricoList"></div>
+      <div class="prest-list-wrap" id="prestHistoricoWrap" style="display:none;">
+        <div id="prestHistoricoList"></div>
+      </div>
     </div>
   </div>
   </div><!-- /prest-sector -->
@@ -3560,17 +3563,19 @@
     </div>
     <div class="prest-list-wrap" id="enqListWrap" style="display:none;">
       <div id="enqList"></div>
-    </div>
-    <!-- HISTÓRICO DE ENQUETES ENCERRADAS -->
-    <div class="prest-historico-toggle" id="enqHistoricoToggle" onclick="kvEnquetes.toggleHistorico(event)" style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;margin-top:2px;cursor:pointer;user-select:none;">
-      <div style="display:flex;align-items:center;gap:6px;">
-        <svg class="prest-toggle-arrow" id="enqHistoricoArrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        <span style="font-family:var(--font-display);font-size:9.5px;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;">🗄 Enquetes encerradas</span>
-        <span class="prest-count-badge" id="enqHistoricoBadge" style="background:rgba(158,170,181,0.1);">0</span>
+      <!-- HISTÓRICO DE ENQUETES ENCERRADAS — fica DENTRO do enqListWrap de
+           propósito: assim ele recolhe/expande junto com a seção de
+           Enquetes, em vez de continuar visível quando minimizada. -->
+      <div class="prest-historico-toggle" id="enqHistoricoToggle" onclick="kvEnquetes.toggleHistorico(event)" style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;margin-top:2px;cursor:pointer;user-select:none;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <svg class="prest-toggle-arrow" id="enqHistoricoArrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <span style="font-family:var(--font-display);font-size:9.5px;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;">🗄 Enquetes encerradas</span>
+          <span class="prest-count-badge" id="enqHistoricoBadge" style="background:rgba(158,170,181,0.1);">0</span>
+        </div>
       </div>
-    </div>
-    <div class="prest-list-wrap" id="enqHistoricoWrap" style="display:none;">
-      <div id="enqHistoricoList"></div>
+      <div class="prest-list-wrap" id="enqHistoricoWrap" style="display:none;">
+        <div id="enqHistoricoList"></div>
+      </div>
     </div>
   </div>
   </div><!-- /enq-sector -->
