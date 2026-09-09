@@ -3368,18 +3368,21 @@
         <datalist id="encDestinatarioOptions"><option value="Fernando Silva Castilho"></option></datalist>
       </div>
       <div id="encList"></div>
-  </div>
-    <!-- HISTÓRICO DE ENCOMENDAS ARQUIVADAS (entregues há +1 dia ou aguardando há +7 dias) -->
-    <div class="prest-historico-toggle" id="encHistoricoToggle" onclick="toggleEncHistorico(event)" style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;margin-top:2px;cursor:pointer;user-select:none;">
-      <div style="display:flex;align-items:center;gap:6px;">
-        <svg class="prest-toggle-arrow" id="encHistoricoArrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        <span style="font-family:var(--font-display);font-size:9.5px;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;">🗄 Histórico de encomendas</span>
-        <span class="prest-count-badge" id="encHistoricoBadge" style="background:rgba(158,170,181,0.1);">0</span>
+      <!-- HISTÓRICO DE ENCOMENDAS ARQUIVADAS (entregues há +1 dia ou aguardando há +7 dias) —
+           fica DENTRO do encListWrap de propósito: assim ele recolhe/expande
+           junto com a seção de Encomendas, em vez de continuar visível
+           quando a seção está minimizada. -->
+      <div class="prest-historico-toggle" id="encHistoricoToggle" onclick="toggleEncHistorico(event)" style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;margin-top:2px;cursor:pointer;user-select:none;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <svg class="prest-toggle-arrow" id="encHistoricoArrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <span style="font-family:var(--font-display);font-size:9.5px;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;">🗄 Histórico de encomendas</span>
+          <span class="prest-count-badge" id="encHistoricoBadge" style="background:rgba(158,170,181,0.1);">0</span>
+        </div>
       </div>
-    </div>
-    <div class="prest-list-wrap" id="encHistoricoWrap" style="display:none;">
-      <div id="encHistoricoList"></div>
-    </div>
+      <div class="prest-list-wrap" id="encHistoricoWrap" style="display:none;">
+        <div id="encHistoricoList"></div>
+      </div>
+  </div>
   </div>
   </div><!-- /enc-sector -->
 
