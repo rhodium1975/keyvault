@@ -1953,6 +1953,18 @@
   .cat-edit-opt.current .cat-edit-opt-check { opacity: 1; }
 
   /* ── ENCOMENDAS COLLAPSIBLE LIST ── */
+  /* ── Retirada sem QR (busca por nome) ── */
+  .enc-nome-resultados { margin-top: 10px; max-height: 42vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  .enc-nome-item {
+    display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; color: var(--text); cursor: pointer; font-family: var(--font-body);
+  }
+  .enc-nome-item:active, .enc-nome-item:hover { border-color: var(--cyan); }
+  .enc-nome-item .n-top { font-size: 13px; font-weight: 600; }
+  .enc-nome-item .n-sub { font-size: 11px; color: var(--text-dim); }
+  .enc-nome-vazio { text-align: center; font-size: 12px; color: var(--text-dim); padding: 14px 6px; }
+
   .enc-list-wrap {
     overflow: hidden;
     max-height: 0;
@@ -3358,6 +3370,10 @@
         <button id="encBtnEscanearQR" class="enc-add-btn" onclick="window.encAbrirScannerQR()" style="flex:1;min-width:0;justify-content:center;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 012-2h2"></path><path d="M17 3h2a2 2 0 012 2v2"></path><path d="M21 17v2a2 2 0 01-2 2h-2"></path><path d="M7 21H5a2 2 0 01-2-2v-2"></path><rect x="7" y="7" width="10" height="10" rx="1"></rect></svg>
           Escanear QR
+        </button>
+        <button id="encBtnSemQR" class="enc-add-btn" onclick="window.encAbrirRetiradaPorNome()" style="flex:1;min-width:0;justify-content:center;" title="Retirar sem QR code, buscando pelo nome">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          Sem QR
         </button>
       </div>
     </div>
@@ -4834,6 +4850,24 @@
   </div>
 </div>
 
+<!-- RETIRAR SEM QR (porteiro/síndico) — busca a encomenda pelo nome -->
+<div class="enc-ret-overlay" id="encNomeOverlay">
+  <div class="enc-ret-modal">
+    <div class="enc-ret-handle"></div>
+    <div class="enc-ret-head">
+      <div class="enc-ret-title">🔎 Retirar sem QR code</div>
+    </div>
+    <div class="enc-ret-body">
+      <label class="form-label">Nome de quem vai retirar</label>
+      <input class="form-input" id="encNomeBusca" placeholder="Digite o nome (ou o apartamento)..." maxlength="60" autocomplete="off" autocorrect="off" spellcheck="false" oninput="window.encRenderRetiradaPorNome()">
+      <div id="encNomeResultados" class="enc-nome-resultados"></div>
+    </div>
+    <div class="enc-ret-footer">
+      <button class="btn-cancel" onclick="window.encFecharRetiradaPorNome()" style="flex:1;">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ZOOM FOTO -->
 <div class="photo-zoom-overlay" id="photoZoomOverlay" onclick="this.classList.remove('open')">
   <img class="photo-zoom-img" id="photoZoomImg" src="" alt="foto ampliada">
@@ -6140,6 +6174,7 @@
     });
     const encBtnReg = document.getElementById('encBtnRegistrar');
     if (encBtnReg) encBtnReg.style.display = isMorador ? 'none' : '';
+    ['encBtnEscanearQR','encBtnSemQR'].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = isMorador ? 'none' : ''; });
 
     // Relatório PDF — só equipe (síndico ou porteiro), nunca morador
     const btnRelatorio = document.getElementById('btnAbrirRelatorio');
@@ -10006,6 +10041,8 @@
       if (_btnRegistrar) _btnRegistrar.style.display = _isMorador ? 'none' : '';
       const _btnEscanearQR = document.getElementById('encBtnEscanearQR');
       if (_btnEscanearQR) _btnEscanearQR.style.display = _isMorador ? 'none' : '';
+      const _btnSemQR = document.getElementById('encBtnSemQR');
+      if (_btnSemQR) _btnSemQR.style.display = _isMorador ? 'none' : '';
 
       // Ocultar campo de busca por destinatário para moradores (eles só veem as próprias)
       const _buscaWrap = document.getElementById('encBuscaWrap');
@@ -10932,6 +10969,7 @@
     // ── NOTIFICAR ──
     // ── RETIRADA DE ENCOMENDA ──
     let _encRetId = null;
+    let _encRetMetodo = null; // 'qr' | 'nome' | null (botão direto no card)
 
     window.encAbrirRetirada = function(id) {
       const enc = encomendas.find(e => e.id === id);
@@ -10966,6 +11004,7 @@
     window.fecharEncRet = function() {
       document.getElementById('encRetOverlay').classList.remove('open');
       _encRetId = null;
+      _encRetMetodo = null;
     };
 
     window.confirmarEncRet = async function() {
@@ -10983,6 +11022,7 @@
         entregueTs: Date.now(),
         retiradoPor: resp,
         retiradoObs: document.getElementById('encRetObs').value.trim() || null,
+        retiradoMetodo: _encRetMetodo || 'lista',
         arquivada: true,
         arquivadaEm: Date.now(),
       };
@@ -11025,6 +11065,74 @@
     document.getElementById('encQRMostrarOverlay').addEventListener('click', function(e) {
       if (e.target === this) window.encFecharQR();
     });
+
+    // ── RETIRADA SEM QR: busca a encomenda pelo nome ──
+    // Para quando a pessoa não tem o QR code na hora. O porteiro digita o
+    // nome (ou o apto), escolhe a encomenda pendente na lista e cai no
+    // MESMO modal de retirada de sempre — onde ele ainda confirma o nome
+    // de quem está levando. O registro fica marcado como retirada "por nome".
+    function _encNorm(t) {
+      return (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    }
+
+    window.encAbrirRetiradaPorNome = function() {
+      const inp = document.getElementById('encNomeBusca');
+      inp.value = '';
+      window.encRenderRetiradaPorNome();
+      document.getElementById('encNomeOverlay').classList.add('open');
+      setTimeout(() => inp.focus(), 200);
+    };
+
+    window.encFecharRetiradaPorNome = function() {
+      document.getElementById('encNomeOverlay').classList.remove('open');
+    };
+
+    window.encRenderRetiradaPorNome = function() {
+      const box = document.getElementById('encNomeResultados');
+      const q = _encNorm(document.getElementById('encNomeBusca').value);
+      const pendentes = encomendas
+        .filter(e => e.status !== 'entregue')
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      if (!pendentes.length) {
+        box.innerHTML = '<div class="enc-nome-vazio">📦 Nenhuma encomenda pendente</div>';
+        return;
+      }
+      const achadas = q
+        ? pendentes.filter(e => _encNorm(e.destinatario).includes(q) || _encNorm('apto ' + e.apto).includes(q) || _encNorm(e.apto) === q)
+        : pendentes;
+      if (!achadas.length) {
+        box.innerHTML = '<div class="enc-nome-vazio">Nenhuma encomenda pendente encontrada para esse nome.<br>Confira a grafia ou busque pelo apartamento.</div>';
+        return;
+      }
+      box.innerHTML = achadas.map(e => {
+        const hora = new Date(e.ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const nome = e.destinatario ? sanitizeHTML(e.destinatario) : 'Sem destinatário informado';
+        const desc = e.desc ? ' · ' + sanitizeHTML(e.desc) : '';
+        return `<button type="button" class="enc-nome-item" data-id="${sanitizeHTML(e.id)}">
+          <span class="n-top">${nome} — Apto ${sanitizeHTML(e.apto)}</span>
+          <span class="n-sub">Chegou em ${hora}${desc}</span>
+        </button>`;
+      }).join('');
+    };
+
+    document.getElementById('encNomeResultados').addEventListener('click', function(ev) {
+      const item = ev.target.closest('.enc-nome-item');
+      if (!item) return;
+      const id = item.getAttribute('data-id');
+      const enc = encomendas.find(e => e.id === id);
+      if (!enc) return;
+      window.encFecharRetiradaPorNome();
+      window.encAbrirRetirada(id);
+      _encRetMetodo = 'nome';
+      // Sugere o nome do destinatário no campo de quem retira — o
+      // porteiro confere e corrige se for outra pessoa.
+      const resp = document.getElementById('encRetResp');
+      if (resp && enc.destinatario) resp.value = enc.destinatario;
+    });
+    document.getElementById('encNomeOverlay').addEventListener('click', function(e) {
+      if (e.target === this) window.encFecharRetiradaPorNome();
+    });
+    document.addEventListener('kv-logout', function() { window.encFecharRetiradaPorNome(); });
 
     // ── QR CODE: escanear (porteiro/síndico) ──
     let _qrScanStream = null;
@@ -11108,6 +11216,7 @@
       // essa etapa só por causa do QR).
       window.encFecharScannerQR();
       window.encAbrirRetirada(encomendaId);
+      _encRetMetodo = 'qr';
       if (typeof mostrarNotif === 'function') mostrarNotif(`📷 QR lido — Apto ${enc.apto}`, 'purple');
     }
 
